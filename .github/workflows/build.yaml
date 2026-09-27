@@ -43,7 +43,7 @@ jobs:
         zip -r UltraKiosk_Unsigned.ipa Payload
 
     - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.4.0
       with:
-        name: UltraKiosk-TrollStore-IPA
+        name: UltraKiosk-IPA
         path: UltraKiosk_Unsigned.ipa
