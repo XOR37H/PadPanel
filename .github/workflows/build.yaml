@@ -1,4 +1,4 @@
-name: Build and Release Unsigned IPA
+name: Build Historical iOS 15 Compatible IPA
 
 on:
   push:
@@ -12,19 +12,25 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0 # Fetches full history so we can roll back the code
+
+    # Rolls back the codebase to a version that supports iOS 15
+    - name: Rollback to iOS 15 Compatible Codebase
+      run: |
+        git checkout $(git rev-list -n 1 --before="2024-06-01" main)
 
     - name: Select Xcode
       run: sudo xcode-select -switch /Applications/Xcode.app
 
-    - name: Compile Device Archive for iOS 15
+    - name: Compile Device Archive
       run: |
         xcodebuild archive \
           -project UltraKiosk.xcodeproj \
           -scheme "UltraKiosk" \
           -sdk iphoneos \
           -archivePath $PWD/build/UltraKiosk.xcarchive \
-          IPHONEOS_DEPLOYMENT_TARGET=15.0 \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
@@ -34,15 +40,15 @@ jobs:
       run: |
         mkdir -p Payload
         cp -r build/UltraKiosk.xcarchive/Products/Applications/*.app Payload/
-        zip -r UltraKiosk_Unsigned.ipa Payload
+        zip -r UltraKiosk_Legacy_Unsigned.ipa Payload
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: UltraKiosk iOS 15 Build #${{ github.run_number }}
+        tag_name: v1.0.legacy-${{ github.run_number }}
+        name: UltraKiosk iOS 15 Legacy Build
         body: |
-          Backward-compatible compilation targeting iOS 15.0+ for manual distribution and local device deployment.
+          Compiled from a historical snapshot to ensure framework compatibility with iOS 15.8.8 hardware.
         draft: false
         prerelease: false
-        files: UltraKiosk_Unsigned.ipa
+        files: UltraKiosk_Legacy_Unsigned.ipa
