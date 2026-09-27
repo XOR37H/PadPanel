@@ -1,36 +1,30 @@
-name: Build IPA
+name: Build and Release Unsigned IPA
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
-  build-ipa:
+  build-and-release:
     runs-on: macos-15
+    permissions:
+      contents: write
 
     steps:
-    # 1. Fixed the deprecation warning by upgrading checkout version to v7
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@v4
 
-    # 2. Relaxed Xcode selection to let the runner pick the active version safely
     - name: Select Xcode
       run: sudo xcode-select -switch /Applications/Xcode.app
 
-    - name: Xcode version
-      run: /usr/bin/xcodebuild -version
-
-    # 3. Enhanced build arguments to explicitly auto-resolve dependencies
-    - name: Compile Device Archive
+    - name: Compile Device Archive for iOS 15
       run: |
         xcodebuild archive \
           -project UltraKiosk.xcodeproj \
           -scheme "UltraKiosk" \
           -sdk iphoneos \
           -archivePath $PWD/build/UltraKiosk.xcarchive \
-          -allowProvisioningUpdates \
+          IPHONEOS_DEPLOYMENT_TARGET=15.0 \
           CODE_SIGN_IDENTITY="" \
           CODE_SIGNING_REQUIRED=NO \
           CODE_SIGNING_ALLOWED=NO \
@@ -42,8 +36,13 @@ jobs:
         cp -r build/UltraKiosk.xcarchive/Products/Applications/*.app Payload/
         zip -r UltraKiosk_Unsigned.ipa Payload
 
-    - name: Upload IPA Artifact
-      uses: actions/upload-artifact@v4.4.0
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
       with:
-        name: UltraKiosk-IPA
-        path: UltraKiosk_Unsigned.ipa
+        tag_name: v1.0.${{ github.run_number }}
+        name: UltraKiosk iOS 15 Build #${{ github.run_number }}
+        body: |
+          Backward-compatible compilation targeting iOS 15.0+ for manual distribution and local device deployment.
+        draft: false
+        prerelease: false
+        files: UltraKiosk_Unsigned.ipa
