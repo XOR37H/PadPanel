@@ -20,9 +20,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select Xcode 16.4
+      - name: Select Xcode 16
         run: |
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          XCODE_PATH=$(find /Applications -maxdepth 1 -name "Xcode_16*.app" | sort -V | tail -n 1)
+          if [ -z "$XCODE_PATH" ]; then
+            XCODE_PATH=$(find /Applications -maxdepth 1 -name "Xcode*.app" | sort -V | tail -n 1)
+          fi
+          echo "Selected Xcode: $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
 
           echo "========== XCODE =========="
           xcodebuild -version
@@ -116,7 +121,16 @@ jobs:
             build/UltraKiosk.xcarchive/Products/Applications/*.app \
             Payload/
 
-          zip -r \
+          # Ensure MinimumOSVersion is explicitly 15.0 for iPad Air 2 / iOS 15.8.8
+          APP_PLIST=$(find Payload -name "Info.plist" -maxdepth 2 | head -n 1)
+          if [ -n "$APP_PLIST" ]; then
+            /usr/libexec/PlistBuddy -c "Set :MinimumOSVersion 15.0" "$APP_PLIST" 2>/dev/null || \
+            /usr/libexec/PlistBuddy -c "Add :MinimumOSVersion string 15.0" "$APP_PLIST" 2>/dev/null || true
+            echo "Verified MinimumOSVersion in Payload:"
+            /usr/libexec/PlistBuddy -c "Print :MinimumOSVersion" "$APP_PLIST" || true
+          fi
+
+          zip -qr -y \
             UltraKiosk_iOS15_arm64_unsigned.ipa \
             Payload
 
