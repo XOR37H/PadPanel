@@ -230,13 +230,35 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text(String(format: "Face detection interval: %.1fs", settings.faceDetectionInterval))
-                Slider(value: $settings.faceDetectionInterval, in: 0.1...5.0, step: 0.1) {
-                    Text("Interval")
-                } minimumValueLabel: {
-                    Text("0.1s")
-                } maximumValueLabel: {
-                    Text("5s")
+                Text("Wakeup method")
+                Picker("Wakeup method", selection: $settings.wakeupMethod) {
+                    Text("Face Detection").tag("face")
+                    Text("Motion Detection").tag("motion")
+                }
+                .pickerStyle(.segmented)
+            }
+
+            if settings.wakeupMethod == "motion" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(format: "Motion sensitivity: %.0f%% change", settings.motionSensitivity * 100))
+                    Slider(value: $settings.motionSensitivity, in: 0.02...0.25, step: 0.01) {
+                        Text("Motion Sensitivity")
+                    } minimumValueLabel: {
+                        Text("High (2%)")
+                    } maximumValueLabel: {
+                        Text("Low (25%)")
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(String(format: "Face detection interval: %.1fs", settings.faceDetectionInterval))
+                    Slider(value: $settings.faceDetectionInterval, in: 0.1...5.0, step: 0.1) {
+                        Text("Interval")
+                    } minimumValueLabel: {
+                        Text("0.1s")
+                    } maximumValueLabel: {
+                        Text("5s")
+                    }
                 }
             }
         }

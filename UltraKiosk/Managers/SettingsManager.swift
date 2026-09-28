@@ -33,6 +33,8 @@ class SettingsManager: ObservableObject {
     @Published var enableVoiceActivation: Bool = true
     @Published var kioskURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
     @Published var faceDetectionInterval: Double = 1.0 // seconds between detections
+    @Published var wakeupMethod: String = "face" // "face" or "motion"
+    @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
     
@@ -64,6 +66,8 @@ class SettingsManager: ObservableObject {
         static let enableVoiceActivation = "enableVoiceActivation"
         static let kioskURL = "kioskURL"
         static let faceDetectionInterval = "faceDetectionInterval"
+        static let wakeupMethod = "wakeupMethod"
+        static let motionSensitivity = "motionSensitivity"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -189,6 +193,13 @@ class SettingsManager: ObservableObject {
             faceDetectionInterval = 1.0
         }
         
+        wakeupMethod = defaults.string(forKey: Keys.wakeupMethod) ?? "face"
+        if let sensitivity = defaults.object(forKey: Keys.motionSensitivity) as? Double {
+            motionSensitivity = sensitivity
+        } else {
+            motionSensitivity = 0.08
+        }
+        
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
             voiceSampleRate = sr
@@ -262,6 +273,8 @@ class SettingsManager: ObservableObject {
         defaults.set(enableVoiceActivation, forKey: Keys.enableVoiceActivation)
         defaults.set(kioskURL, forKey: Keys.kioskURL)
         defaults.set(faceDetectionInterval, forKey: Keys.faceDetectionInterval)
+        defaults.set(wakeupMethod, forKey: Keys.wakeupMethod)
+        defaults.set(motionSensitivity, forKey: Keys.motionSensitivity)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)
@@ -345,6 +358,8 @@ class SettingsManager: ObservableObject {
             "enableVoiceActivation": enableVoiceActivation,
             "kioskURL": kioskURL,
             "faceDetectionInterval": faceDetectionInterval,
+            "wakeupMethod": wakeupMethod,
+            "motionSensitivity": motionSensitivity,
             "voiceSampleRate": voiceSampleRate,
             "voiceTimeout": voiceTimeout,
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
@@ -375,6 +390,8 @@ class SettingsManager: ObservableObject {
         enableVoiceActivation = settings["enableVoiceActivation"] as? Bool ?? enableVoiceActivation
         kioskURL = settings["kioskURL"] as? String ?? kioskURL
         faceDetectionInterval = settings["faceDetectionInterval"] as? Double ?? faceDetectionInterval
+        wakeupMethod = settings["wakeupMethod"] as? String ?? wakeupMethod
+        if let sens = settings["motionSensitivity"] as? Double { motionSensitivity = sens }
 
         homeAssistantConversationId = settings["homeAssistantConversationId"] as? String ?? homeAssistantConversationId
         homeAssistantConversationAgent = settings["homeAssistantConversationAgent"] as? String ?? homeAssistantConversationAgent
@@ -409,6 +426,8 @@ class SettingsManager: ObservableObject {
         enableVoiceActivation = false
         kioskURL = ""
         faceDetectionInterval = 1.0
+        wakeupMethod = "face"
+        motionSensitivity = 0.08
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

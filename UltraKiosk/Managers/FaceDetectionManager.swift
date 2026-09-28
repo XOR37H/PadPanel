@@ -6,17 +6,24 @@ import Combine
 class FaceDetectionManager: NSObject, ObservableObject {
     @Published var faceDetected = false
     @Published var isDetecting = false
+    @Published var motionScore: Double = 0.0
+    @Published var framesReceived: Int = 0
     
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let videoOutput = AVCaptureVideoDataOutput()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue", qos: .userInitiated)
     
-    // Frame rate limiting properties
+    // Frame rate limiting properties for face detection
     private var lastDetectionTime: CFTimeInterval = 0
     private var detectionInterval: CFTimeInterval = SettingsManager.shared.faceDetectionInterval
     private var lastSuccessfulOrientation: CGImagePropertyOrientation = .leftMirrored
     private var isProcessing = false
+    
+    // Motion detection properties
+    private var previousGridSample: [UInt8] = []
+    private let gridCols = 16
+    private let gridRows = 12
     
     override init() {
         super.init()
@@ -39,6 +46,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
             self.previewLayer = nil
             self.detectionInterval = newInterval
             self.lastDetectionTime = 0
+            self.previousGridSample.removeAll()
             self.configureCaptureSession()
             if wasDetecting {
                 self.captureSession?.startRunning()
@@ -96,7 +104,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
                 }
             }
         default:
-            AppLogger.app.warningConditional("Camera access not authorized for face detection.")
+            AppLogger.app.warningConditional("Camera access not authorized for face/motion detection.")
         }
     }
     
@@ -108,12 +116,16 @@ class FaceDetectionManager: NSObject, ObservableObject {
                 self.configureCaptureSession()
             }
             
+            self.previousGridSample.removeAll()
+            
             if self.captureSession?.isRunning == false {
                 self.captureSession?.startRunning()
             }
             
             DispatchQueue.main.async {
                 self.faceDetected = false
+                self.framesReceived = 0
+                self.motionScore = 0.0
                 self.isDetecting = true
             }
         }
@@ -125,9 +137,11 @@ class FaceDetectionManager: NSObject, ObservableObject {
             if self.captureSession?.isRunning == true {
                 self.captureSession?.stopRunning()
             }
+            self.previousGridSample.removeAll()
             DispatchQueue.main.async {
                 self.isDetecting = false
                 self.faceDetected = false
+                self.motionScore = 0.0
             }
         }
     }
@@ -145,6 +159,64 @@ class FaceDetectionManager: NSObject, ObservableObject {
         return false
     }
     
+    // MARK: - Motion Detection
+    private func processMotionDetection(pixelBuffer: CVPixelBuffer) {
+        guard !isProcessing, !faceDetected else { return }
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return }
+        
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
+        
+        var currentSample = [UInt8]()
+        currentSample.reserveCapacity(gridCols * gridRows)
+        
+        for row in 0..<gridRows {
+            let y = (height * (row + 1)) / (gridRows + 1)
+            let rowStart = y * bytesPerRow
+            for col in 0..<gridCols {
+                let x = (width * (col + 1)) / (gridCols + 1)
+                let pixelOffset = rowStart + (x * 4)
+                let b = UInt32(buffer[pixelOffset])
+                let g = UInt32(buffer[pixelOffset + 1])
+                let r = UInt32(buffer[pixelOffset + 2])
+                let gray = UInt8((r + 2 * g + b) / 4)
+                currentSample.append(gray)
+            }
+        }
+        
+        guard !previousGridSample.isEmpty, previousGridSample.count == currentSample.count else {
+            previousGridSample = currentSample
+            return
+        }
+        
+        var totalDiff: Double = 0.0
+        for i in 0..<currentSample.count {
+            totalDiff += Double(abs(Int(currentSample[i]) - Int(previousGridSample[i])))
+        }
+        previousGridSample = currentSample
+        
+        let avgChange = (totalDiff / Double(currentSample.count)) / 255.0
+        let threshold = SettingsManager.shared.motionSensitivity
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.motionScore = avgChange
+            if avgChange >= threshold && !self.faceDetected {
+                self.faceDetected = true
+                AppLogger.app.infoConditional(String(format: "Motion detected (%.1f%% >= %.0f%%) — waking kiosk!", avgChange * 100, threshold * 100))
+            }
+        }
+    }
+    
+    // MARK: - Face Detection
     private func detectFace(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) -> Bool {
         var faceFound = false
         let request = VNDetectFaceRectanglesRequest { req, _ in
@@ -178,7 +250,6 @@ class FaceDetectionManager: NSObject, ObservableObject {
             .down
         ]
         
-        // Deduplicate while preserving priority order
         var seen = Set<UInt32>()
         orientations = orientations.filter { seen.insert($0.rawValue).inserted }
         
@@ -201,8 +272,16 @@ extension FaceDetectionManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         guard isDetecting, !faceDetected else { return }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         
-        if shouldProcessFrame() {
-            processFaceDetection(pixelBuffer: pixelBuffer)
+        DispatchQueue.main.async { [weak self] in
+            self?.framesReceived += 1
+        }
+        
+        if SettingsManager.shared.wakeupMethod == "motion" {
+            processMotionDetection(pixelBuffer: pixelBuffer)
+        } else {
+            if shouldProcessFrame() {
+                processFaceDetection(pixelBuffer: pixelBuffer)
+            }
         }
     }
 }
