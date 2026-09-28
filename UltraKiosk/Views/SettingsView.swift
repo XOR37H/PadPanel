@@ -36,7 +36,8 @@ struct SettingsView: View {
                     Button("Save") {
                         saveAndClose()
                     }
-                    .fontWeight(.semibold)
+                    //.fontWeight(.semibold)
+                    .font(.system(size: 17, weight: .semibold))
                 }
             }
             .alert("Validation error", isPresented: $showingValidationAlert) {
