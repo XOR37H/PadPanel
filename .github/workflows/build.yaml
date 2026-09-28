@@ -1,54 +1,110 @@
-name: Build Historical iOS 15 Compatible IPA
+name: Build UltraKiosk for iOS 15
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  build-and-release:
+  build:
     runs-on: macos-15
+
     permissions:
       contents: write
 
     steps:
-    - uses: actions/checkout@v7
-      with:
-        fetch-depth: 0 # Fetches full history so we can roll back the code
 
-    # Rolls back the codebase to a version that supports iOS 15
-    - name: Rollback to iOS 15 Compatible Codebase
-      run: |
-        git checkout $(git rev-list -n 1 --before="2024-06-01" main)
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Select Xcode
-      run: sudo xcode-select -switch /Applications/Xcode.app
+      - name: Select Xcode 16.4
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
-    - name: Compile Device Archive
-      run: |
-        xcodebuild archive \
-          -project UltraKiosk.xcodeproj \
-          -scheme "UltraKiosk" \
-          -sdk iphoneos \
-          -archivePath $PWD/build/UltraKiosk.xcarchive \
-          CODE_SIGN_IDENTITY="" \
-          CODE_SIGNING_REQUIRED=NO \
-          CODE_SIGNING_ALLOWED=NO \
-          COMPILER_INDEX_STORE_ENABLE=NO
+          echo "Xcode:"
+          xcodebuild -version
 
-    - name: Package Payload to IPA
-      run: |
-        mkdir -p Payload
-        cp -r build/UltraKiosk.xcarchive/Products/Applications/*.app Payload/
-        zip -r UltraKiosk_Legacy_Unsigned.ipa Payload
+          echo "SDK:"
+          xcrun --sdk iphoneos --show-sdk-version
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v1.0.legacy-${{ github.run_number }}
-        name: UltraKiosk iOS 15 Legacy Build
-        body: |
-          Compiled from a historical snapshot to ensure framework compatibility with iOS 15.8.8 hardware.
-        draft: false
-        prerelease: false
-        files: UltraKiosk_Legacy_Unsigned.ipa
+      - name: Resolve Swift packages
+        run: |
+          xcodebuild \
+            -resolvePackageDependencies \
+            -project UltraKiosk.xcodeproj \
+            -scheme UltraKiosk
+
+      - name: Build unsigned device archive
+        run: |
+          rm -rf build
+
+          xcodebuild archive \
+            -project UltraKiosk.xcodeproj \
+            -scheme UltraKiosk \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$PWD/build/UltraKiosk.xcarchive" \
+            -destination "generic/platform=iOS" \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO
+
+      - name: Show built application information
+        run: |
+          APP=$(find build/UltraKiosk.xcarchive/Products/Applications -maxdepth 1 -name "*.app" -print -quit)
+
+          echo "Application:"
+          echo "$APP"
+
+          echo
+          echo "Architecture:"
+          file "$APP/UltraKiosk"
+
+          echo
+          echo "Deployment target:"
+          /usr/libexec/PlistBuddy \
+            -c "Print :MinimumOSVersion" \
+            "$APP/Info.plist" || true
+
+          echo
+          echo "Embedded frameworks:"
+          find "$APP/Frameworks" -maxdepth 1 -type d -print 2>/dev/null || true
+
+      - name: Package IPA
+        run: |
+          rm -rf Payload
+          mkdir Payload
+
+          cp -R \
+            build/UltraKiosk.xcarchive/Products/Applications/*.app \
+            Payload/
+
+          zip -r \
+            UltraKiosk_iOS15_arm64_unsigned.ipa \
+            Payload
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios15-build-${{ github.run_number }}
+          name: UltraKiosk iOS 15 Build ${{ github.run_number }}
+          body: |
+            UltraKiosk built specifically for testing on
+            iOS/iPadOS 15.x devices.
+
+            Build configuration:
+            - Xcode 16.4
+            - iOS deployment target 15.0
+            - arm64
+            - Device build
+            - Unsigned; intended for TrollStore installation
+          draft: false
+          prerelease: true
+          files: UltraKiosk_iOS15_arm64_unsigned.ipa
