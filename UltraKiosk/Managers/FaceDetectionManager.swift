@@ -6,6 +6,7 @@ import Combine
 class FaceDetectionManager: NSObject, ObservableObject {
     @Published var faceDetected = false
     @Published var isDetecting = false
+    @Published var isCalibrating = false
     @Published var motionScore: Double = 0.0
     @Published var framesReceived: Int = 0
     @Published var cameraStatusText: String = "Initializing..."
@@ -25,10 +26,81 @@ class FaceDetectionManager: NSObject, ObservableObject {
     private var previousGridSample: [UInt8] = []
     private let gridCols = 16
     private let gridRows = 12
+    private var detectionStartTime: CFTimeInterval = 0
+    private var consecutiveMotionFrames: Int = 0
     
     override init() {
         super.init()
+        setupNotificationObservers()
         setupCamera()
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    private func setupNotificationObservers() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionRuntimeError(_:)),
+            name: .AVCaptureSessionRuntimeError,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionWasInterrupted(_:)),
+            name: .AVCaptureSessionWasInterrupted,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleSessionInterruptionEnded(_:)),
+            name: .AVCaptureSessionInterruptionEnded,
+            object: nil
+        )
+    }
+    
+    @objc private func handleSessionRuntimeError(_ notification: Notification) {
+        guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else { return }
+        AppLogger.app.error("Capture session runtime error: \(error.localizedDescription) (code: \(error.code.rawValue))")
+        DispatchQueue.main.async {
+            self.cameraStatusText = "Error: \(error.localizedDescription)"
+        }
+        
+        if error.code == .mediaServicesWereReset {
+            sessionQueue.async { [weak self] in
+                guard let self = self, self.isDetecting else { return }
+                self.captureSession?.startRunning()
+            }
+        }
+    }
+    
+    @objc private func handleSessionWasInterrupted(_ notification: Notification) {
+        if let reasonValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? Int,
+           let reason = AVCaptureSession.InterruptionReason(rawValue: reasonValue) {
+            AppLogger.app.warningConditional("Capture session interrupted: \(reason.rawValue)")
+            DispatchQueue.main.async {
+                switch reason {
+                case .videoDeviceNotAvailableInBackground:
+                    self.cameraStatusText = "Interrupted: In background"
+                case .audioDeviceInUseByAnotherClient:
+                    self.cameraStatusText = "Interrupted: Audio in use"
+                case .videoDeviceInUseByAnotherClient:
+                    self.cameraStatusText = "Interrupted: Camera in use"
+                case .videoDeviceNotAvailableWithMultipleForegroundApps:
+                    self.cameraStatusText = "Interrupted: Multi-app"
+                @unknown default:
+                    self.cameraStatusText = "Interrupted"
+                }
+            }
+        }
+    }
+    
+    @objc private func handleSessionInterruptionEnded(_ notification: Notification) {
+        AppLogger.app.infoConditional("Capture session interruption ended")
+        DispatchQueue.main.async {
+            self.cameraStatusText = "Camera running"
+        }
     }
     
     func updateDetectionInterval(_ newInterval: CFTimeInterval) {
@@ -66,6 +138,10 @@ class FaceDetectionManager: NSObject, ObservableObject {
     
     private func configureCaptureSession() {
         let session = AVCaptureSession()
+        // Crucial: Disallow AVCaptureSession from touching AVAudioSession.
+        // This ensures the camera never interferes with, or is blocked by,
+        // active microphone / AVAudioEngine continuous voice detection.
+        session.automaticallyConfiguresApplicationAudioSession = false
         session.beginConfiguration()
         defer { session.commitConfiguration() }
         
@@ -151,19 +227,36 @@ class FaceDetectionManager: NSObject, ObservableObject {
             }
             
             self.previousGridSample.removeAll()
+            self.detectionStartTime = CACurrentMediaTime()
+            self.consecutiveMotionFrames = 0
             
             let isRunningBefore = self.captureSession?.isRunning ?? false
             if !isRunningBefore {
                 self.captureSession?.startRunning()
             }
-            let isRunningAfter = self.captureSession?.isRunning ?? false
+            var isRunningAfter = self.captureSession?.isRunning ?? false
+            
+            // Retry once after 0.2s if not running yet
+            if !isRunningAfter {
+                self.sessionQueue.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                    guard let self = self, self.isDetecting else { return }
+                    if self.captureSession?.isRunning == false {
+                        self.captureSession?.startRunning()
+                    }
+                    let running = self.captureSession?.isRunning ?? false
+                    DispatchQueue.main.async {
+                        self.cameraStatusText = running ? "Camera running" : "Camera failed to start"
+                    }
+                }
+            }
             
             DispatchQueue.main.async {
                 self.faceDetected = false
                 self.framesReceived = 0
                 self.motionScore = 0.0
                 self.isDetecting = true
-                self.cameraStatusText = isRunningAfter ? "Camera running" : "Camera failed to start"
+                self.isCalibrating = true
+                self.cameraStatusText = isRunningAfter ? "Camera running" : "Starting camera..."
             }
         }
     }
@@ -177,6 +270,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
             self.previousGridSample.removeAll()
             DispatchQueue.main.async {
                 self.isDetecting = false
+                self.isCalibrating = false
                 self.faceDetected = false
                 self.motionScore = 0.0
                 self.cameraStatusText = "Camera stopped"
@@ -244,12 +338,32 @@ class FaceDetectionManager: NSObject, ObservableObject {
         let avgChange = (totalDiff / Double(currentSample.count)) / 255.0
         let threshold = SettingsManager.shared.motionSensitivity
         
+        // 2-second stabilization delay upon entering screensaver:
+        // Allows screen fade transition to complete and camera hardware auto-exposure (AE)
+        // / auto-gain control (AGC) to settle in the dark without false-triggering wakeup.
+        let timeSinceStart = CACurrentMediaTime() - detectionStartTime
+        let isWarmingUp = timeSinceStart < 2.0
+        
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.motionScore = avgChange
-            if avgChange >= threshold && !self.faceDetected {
-                self.faceDetected = true
-                AppLogger.app.infoConditional(String(format: "Motion detected (%.1f%% >= %.0f%%) — waking kiosk!", avgChange * 100, threshold * 100))
+            self.isCalibrating = isWarmingUp
+            
+            if isWarmingUp {
+                self.consecutiveMotionFrames = 0
+                return
+            }
+            
+            // Require 2 consecutive frames of motion exceeding threshold to prevent
+            // single-frame sensor noise or flicker from triggering wake-up.
+            if avgChange >= threshold {
+                self.consecutiveMotionFrames += 1
+                if self.consecutiveMotionFrames >= 2 && !self.faceDetected {
+                    self.faceDetected = true
+                    AppLogger.app.infoConditional(String(format: "Motion detected (%.1f%% >= %.0f%% across 2 frames) — waking kiosk!", avgChange * 100, threshold * 100))
+                }
+            } else {
+                self.consecutiveMotionFrames = 0
             }
         }
     }

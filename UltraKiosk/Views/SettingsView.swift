@@ -313,6 +313,21 @@ struct SettingsView: View {
                  : "\(settings.effectiveURLs.count) URL(s) · \(Int(settings.slideshowInterval)) s interval")
                 .font(.caption)
                 .foregroundColor(.secondary)
+            
+            Toggle("Auto refresh page", isOn: $settings.enableAutoRefresh)
+            
+            if settings.enableAutoRefresh {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Refresh interval: \(settings.autoRefreshIntervalFormatted)")
+                    Slider(value: $settings.autoRefreshInterval, in: 10...3600, step: 10) {
+                        Text("Refresh Interval")
+                    } minimumValueLabel: {
+                        Text("10s")
+                    } maximumValueLabel: {
+                        Text("60m")
+                    }
+                }
+            }
         }
     }
     

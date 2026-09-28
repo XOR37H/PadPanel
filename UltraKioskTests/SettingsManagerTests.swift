@@ -63,6 +63,14 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(sut.wakeupMethod, "face")
     }
 
+    func testDefaultValues_enableAutoRefresh_isFalse() {
+        XCTAssertFalse(sut.enableAutoRefresh)
+    }
+
+    func testDefaultValues_autoRefreshInterval_is300() {
+        XCTAssertEqual(sut.autoRefreshInterval, 300.0, accuracy: 0.001)
+    }
+
     func testDefaultValues_voiceSampleRate_is16000() {
         XCTAssertEqual(sut.voiceSampleRate, 16000)
     }
@@ -409,6 +417,8 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertNotNil(exported["screensaverTimeout"])
         XCTAssertNotNil(exported["slideshowURLs"])
         XCTAssertNotNil(exported["slideshowInterval"])
+        XCTAssertNotNil(exported["enableAutoRefresh"])
+        XCTAssertNotNil(exported["autoRefreshInterval"])
     }
 
     // MARK: - settingsChanged Notification

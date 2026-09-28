@@ -36,6 +36,8 @@ class SettingsManager: ObservableObject {
     @Published var wakeupMethod: String = "face" // "face" or "motion"
     @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
     @Published var showDebugInfo: Bool = true
+    @Published var enableAutoRefresh: Bool = false
+    @Published var autoRefreshInterval: Double = 300.0 // seconds, default 5m
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
     
@@ -70,6 +72,8 @@ class SettingsManager: ObservableObject {
         static let wakeupMethod = "wakeupMethod"
         static let motionSensitivity = "motionSensitivity"
         static let showDebugInfo = "showDebugInfo"
+        static let enableAutoRefresh = "enableAutoRefresh"
+        static let autoRefreshInterval = "autoRefreshInterval"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -114,6 +118,19 @@ class SettingsManager: ObservableObject {
             return "\(Int(mqttBatteryUpdateInterval))s"
         } else {
             let minutes = Int(mqttBatteryUpdateInterval / 60)
+            return "\(minutes)m"
+        }
+    }
+    
+    var autoRefreshIntervalFormatted: String {
+        if autoRefreshInterval < 60 {
+            return "\(Int(autoRefreshInterval))s"
+        } else {
+            let minutes = Int(autoRefreshInterval / 60)
+            let remainder = Int(autoRefreshInterval.truncatingRemainder(dividingBy: 60))
+            if remainder > 0 {
+                return "\(minutes)m \(remainder)s"
+            }
             return "\(minutes)m"
         }
     }
@@ -208,6 +225,18 @@ class SettingsManager: ObservableObject {
             showDebugInfo = true
         }
         
+        if defaults.object(forKey: Keys.enableAutoRefresh) != nil {
+            enableAutoRefresh = defaults.bool(forKey: Keys.enableAutoRefresh)
+        } else {
+            enableAutoRefresh = false
+        }
+        
+        if let interval = defaults.object(forKey: Keys.autoRefreshInterval) as? Double {
+            autoRefreshInterval = interval
+        } else {
+            autoRefreshInterval = 300.0
+        }
+        
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
             voiceSampleRate = sr
@@ -284,6 +313,8 @@ class SettingsManager: ObservableObject {
         defaults.set(wakeupMethod, forKey: Keys.wakeupMethod)
         defaults.set(motionSensitivity, forKey: Keys.motionSensitivity)
         defaults.set(showDebugInfo, forKey: Keys.showDebugInfo)
+        defaults.set(enableAutoRefresh, forKey: Keys.enableAutoRefresh)
+        defaults.set(autoRefreshInterval, forKey: Keys.autoRefreshInterval)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)
@@ -370,6 +401,8 @@ class SettingsManager: ObservableObject {
             "wakeupMethod": wakeupMethod,
             "motionSensitivity": motionSensitivity,
             "showDebugInfo": showDebugInfo,
+            "enableAutoRefresh": enableAutoRefresh,
+            "autoRefreshInterval": autoRefreshInterval,
             "voiceSampleRate": voiceSampleRate,
             "voiceTimeout": voiceTimeout,
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
@@ -403,6 +436,8 @@ class SettingsManager: ObservableObject {
         wakeupMethod = settings["wakeupMethod"] as? String ?? wakeupMethod
         if let sens = settings["motionSensitivity"] as? Double { motionSensitivity = sens }
         if let dbg = settings["showDebugInfo"] as? Bool { showDebugInfo = dbg }
+        if let ref = settings["enableAutoRefresh"] as? Bool { enableAutoRefresh = ref }
+        if let refInt = settings["autoRefreshInterval"] as? Double { autoRefreshInterval = refInt }
 
         homeAssistantConversationId = settings["homeAssistantConversationId"] as? String ?? homeAssistantConversationId
         homeAssistantConversationAgent = settings["homeAssistantConversationAgent"] as? String ?? homeAssistantConversationAgent
@@ -440,6 +475,8 @@ class SettingsManager: ObservableObject {
         wakeupMethod = "face"
         motionSensitivity = 0.08
         showDebugInfo = true
+        enableAutoRefresh = false
+        autoRefreshInterval = 300.0
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

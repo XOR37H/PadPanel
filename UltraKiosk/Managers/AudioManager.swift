@@ -134,7 +134,7 @@ class AudioManager: NSObject, ObservableObject {
             let audioSession = AVAudioSession.sharedInstance()
             try audioSession.setCategory(.playAndRecord,
                                          mode: .default,
-                                         options: [.defaultToSpeaker, .allowBluetoothA2DP])
+                                         options: [.defaultToSpeaker, .allowBluetoothA2DP, .mixWithOthers])
             
             // Apply preferred format settings
             try audioSession.setPreferredSampleRate(Double(settings.voiceSampleRate))

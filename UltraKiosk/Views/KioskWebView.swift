@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import WebKit
 
@@ -52,7 +53,9 @@ struct KioskWebView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(self, webViewHandler: webViewHandler)
+        let coordinator = Coordinator(self, webViewHandler: webViewHandler)
+        coordinator.requestedURL = url ?? ""
+        return coordinator
     }
 
     private func loadContent(in webView: WKWebView) {
@@ -249,6 +252,8 @@ struct KioskWebView: UIViewRepresentable {
         /// The URL that was most recently requested. Used in updateUIView to prevent
         /// reload loops caused by HTTP redirects changing uiView.url after navigation.
         var requestedURL: String = ""
+        private var autoRefreshTimer: Timer?
+        private var cancellables = Set<AnyCancellable>()
 
         init(_ parent: KioskWebView, webViewHandler: WebViewHandler) {
             self.parent = parent
@@ -260,10 +265,37 @@ struct KioskWebView: UIViewRepresentable {
                 name: .reloadAllWebViews,
                 object: nil
             )
+            setupAutoRefreshObserver()
         }
 
         deinit {
+            autoRefreshTimer?.invalidate()
+            autoRefreshTimer = nil
+            cancellables.removeAll()
             NotificationCenter.default.removeObserver(self, name: .reloadAllWebViews, object: nil)
+        }
+
+        private func setupAutoRefreshObserver() {
+            let settings = SettingsManager.shared
+            Publishers.CombineLatest(settings.$enableAutoRefresh, settings.$autoRefreshInterval)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] enabled, interval in
+                    self?.configureAutoRefreshTimer(enabled: enabled, interval: interval)
+                }
+                .store(in: &cancellables)
+        }
+
+        private func configureAutoRefreshTimer(enabled: Bool, interval: Double) {
+            autoRefreshTimer?.invalidate()
+            autoRefreshTimer = nil
+            
+            guard enabled, interval >= 5 else { return }
+            
+            autoRefreshTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+                guard let self = self, let webView = self.webView else { return }
+                AppLogger.webView.info("Auto refresh triggered after \(interval)s")
+                webView.reload()
+            }
         }
 
         /// Reloads the WebView, bypassing the disk cache, in response to a settings save.

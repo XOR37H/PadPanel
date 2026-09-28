@@ -51,9 +51,15 @@ struct ScreensaverView: View {
                                     .foregroundColor(.gray.opacity(0.85))
                                 
                                 if isMotionMode {
-                                    Text(String(format: "Motion: %.1f%% / %.0f%%", faceDetectionManager.motionScore * 100, settings.motionSensitivity * 100))
-                                        .font(.system(size: 13, weight: .regular, design: .monospaced))
-                                        .foregroundColor(faceDetectionManager.motionScore >= settings.motionSensitivity ? .green : .gray.opacity(0.85))
+                                    if faceDetectionManager.isCalibrating {
+                                        Text(String(format: "Motion: %.1f%% (calibrating)", faceDetectionManager.motionScore * 100))
+                                            .font(.system(size: 13, weight: .regular, design: .monospaced))
+                                            .foregroundColor(.yellow.opacity(0.85))
+                                    } else {
+                                        Text(String(format: "Motion: %.1f%% / %.0f%%", faceDetectionManager.motionScore * 100, settings.motionSensitivity * 100))
+                                            .font(.system(size: 13, weight: .regular, design: .monospaced))
+                                            .foregroundColor(faceDetectionManager.motionScore >= settings.motionSensitivity ? .green : .gray.opacity(0.85))
+                                    }
                                 }
                             }
                             

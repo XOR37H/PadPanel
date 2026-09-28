@@ -35,13 +35,6 @@ struct ContentView: View {
                     )
             }
 
-            // Keep camera preview alive for face detection (invisible)
-            if settings.enableVoiceActivation {
-                CameraPreview(faceDetectionManager: faceDetectionManager)
-                    .opacity(0.001)
-                    .allowsHitTesting(false)
-            }
-
             // Screensaver overlay
             if kioskManager.isScreensaverActive {
                 ScreensaverView()
