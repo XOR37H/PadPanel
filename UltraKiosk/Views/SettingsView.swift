@@ -496,7 +496,7 @@ struct URLListEditor: View {
                     committedInterval = interval
                     dismiss()
                 }
-                .fontWeight(.semibold)
+                .font(.system(size: 17, weight: .semibold))
             }
         }
     }
