@@ -10,38 +10,13 @@ class FaceDetectionManager: NSObject, ObservableObject {
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let videoOutput = AVCaptureVideoDataOutput()
-    private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+    private let sessionQueue = DispatchQueue(label: "camera.session.queue", qos: .userInitiated)
     
     // Frame rate limiting properties
     private var lastDetectionTime: CFTimeInterval = 0
     private var detectionInterval: CFTimeInterval = SettingsManager.shared.faceDetectionInterval
-    private var pendingPixelBuffer: CVPixelBuffer?
-    
-    // Reusable Vision request for performance optimization
-    private lazy var faceDetectionRequest: VNDetectFaceRectanglesRequest = {
-        let request = VNDetectFaceRectanglesRequest { [weak self] request, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                AppLogger.app.warningConditional("Face detection error: \(error.localizedDescription)")
-                return
-            }
-            
-            guard let results = request.results as? [VNFaceObservation] else { return }
-            
-            DispatchQueue.main.async {
-                let hasFaces = !results.isEmpty
-                if hasFaces != self.faceDetected {
-                    self.faceDetected = hasFaces
-                    if hasFaces {
-                        AppLogger.app.infoConditional("Face detected! Waking up kiosk.")
-                    }
-                }
-            }
-        }
-        
-        return request
-    }()
+    private var lastSuccessfulOrientation: CGImagePropertyOrientation = .leftMirrored
+    private var isProcessing = false
     
     override init() {
         super.init()
@@ -80,51 +55,33 @@ class FaceDetectionManager: NSObject, ObservableObject {
         }
     }
     
-    private func currentVideoOrientation() -> AVCaptureVideoOrientation {
-        if let windowScene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
-            switch windowScene.interfaceOrientation {
-            case .landscapeLeft:
-                return .landscapeLeft
-            case .landscapeRight:
-                return .landscapeRight
-            case .portraitUpsideDown:
-                return .portraitUpsideDown
-            default:
-                return .landscapeRight
-            }
-        }
-        return .landscapeRight
-    }
-    
     private func configureCaptureSession() {
-        captureSession = AVCaptureSession()
-        captureSession?.sessionPreset = .medium
+        let session = AVCaptureSession()
+        session.sessionPreset = .medium
         
         guard let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let input = try? AVCaptureDeviceInput(device: frontCamera),
-              let captureSession = captureSession else {
+              let input = try? AVCaptureDeviceInput(device: frontCamera) else {
+            AppLogger.app.warningConditional("Front camera input not available during configureCaptureSession.")
             return
         }
         
-        if captureSession.canAddInput(input) {
-            captureSession.addInput(input)
+        if session.canAddInput(input) {
+            session.addInput(input)
         }
         
+        videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         
-        if captureSession.canAddOutput(videoOutput) {
-            captureSession.addOutput(videoOutput)
+        if session.canAddOutput(videoOutput) {
+            session.addOutput(videoOutput)
         }
         
-        if let connection = videoOutput.connection(with: .video) {
-            if connection.isVideoOrientationSupported {
-                connection.videoOrientation = currentVideoOrientation()
-            }
-        }
-        
-        previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
+        previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer?.videoGravity = .resizeAspectFill
+        
+        self.captureSession = session
+        AppLogger.app.infoConditional("Camera capture session successfully configured.")
     }
     
     func startDetection() {
@@ -147,19 +104,8 @@ class FaceDetectionManager: NSObject, ObservableObject {
         sessionQueue.async { [weak self] in
             guard let self = self else { return }
             
-            // Reconfigure session if needed (e.g. if permissions were granted after init)
             if self.captureSession == nil || self.captureSession?.inputs.isEmpty == true {
                 self.configureCaptureSession()
-            }
-            
-            // Re-sync orientation with current UI landscape orientation
-            DispatchQueue.main.async {
-                let orientation = self.currentVideoOrientation()
-                self.sessionQueue.async {
-                    if let connection = self.videoOutput.connection(with: .video), connection.isVideoOrientationSupported {
-                        connection.videoOrientation = orientation
-                    }
-                }
             }
             
             if self.captureSession?.isRunning == false {
@@ -167,6 +113,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
             }
             
             DispatchQueue.main.async {
+                self.faceDetected = false
                 self.isDetecting = true
             }
         }
@@ -174,10 +121,13 @@ class FaceDetectionManager: NSObject, ObservableObject {
     
     func stopDetection() {
         sessionQueue.async { [weak self] in
-            self?.captureSession?.stopRunning()
+            guard let self = self else { return }
+            if self.captureSession?.isRunning == true {
+                self.captureSession?.stopRunning()
+            }
             DispatchQueue.main.async {
-                self?.isDetecting = false
-                self?.faceDetected = false
+                self.isDetecting = false
+                self.faceDetected = false
             }
         }
     }
@@ -195,22 +145,61 @@ class FaceDetectionManager: NSObject, ObservableObject {
         return false
     }
     
-    private func processFaceDetection(pixelBuffer: CVPixelBuffer) {
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+    private func detectFace(in pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) -> Bool {
+        var faceFound = false
+        let request = VNDetectFaceRectanglesRequest { req, _ in
+            if let results = req.results as? [VNFaceObservation], !results.isEmpty {
+                faceFound = true
+            }
+        }
+        // Revision 2 is fast, lightweight, and fully supported on iOS 14+ / iOS 15 on A8X
+        request.revision = VNDetectFaceRectanglesRequestRevision2
         
-        do {
-            try handler.perform([faceDetectionRequest])
-        } catch {
-            AppLogger.app.warningConditional("Failed to perform face detection: \(error.localizedDescription)")
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation, options: [:])
+        try? handler.perform([request])
+        return faceFound
+    }
+    
+    private func processFaceDetection(pixelBuffer: CVPixelBuffer) {
+        guard !isProcessing, !faceDetected else { return }
+        isProcessing = true
+        defer { isProcessing = false }
+        
+        // Prioritize last successful orientation first, then candidate orientations for iPad landscape/portrait
+        var orientations: [CGImagePropertyOrientation] = [
+            lastSuccessfulOrientation,
+            .leftMirrored,
+            .rightMirrored,
+            .upMirrored,
+            .downMirrored,
+            .up,
+            .left,
+            .right,
+            .down
+        ]
+        
+        // Deduplicate while preserving priority order
+        var seen = Set<UInt32>()
+        orientations = orientations.filter { seen.insert($0.rawValue).inserted }
+        
+        for orientation in orientations {
+            if detectFace(in: pixelBuffer, orientation: orientation) {
+                lastSuccessfulOrientation = orientation
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, !self.faceDetected else { return }
+                    self.faceDetected = true
+                    AppLogger.app.infoConditional("Face detected with orientation \(orientation.rawValue) — waking kiosk!")
+                }
+                return
+            }
         }
     }
 }
 
 extension FaceDetectionManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard isDetecting, !faceDetected else { return }
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        
-        pendingPixelBuffer = pixelBuffer
         
         if shouldProcessFrame() {
             processFaceDetection(pixelBuffer: pixelBuffer)

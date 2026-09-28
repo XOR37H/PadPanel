@@ -22,13 +22,15 @@ struct ScreensaverView: View {
                     .foregroundColor(.gray)
                 
                 if faceDetectionManager.isDetecting {
-                    HStack {
+                    HStack(spacing: 12) {
                         ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        Text("Face detection active...")
-                            .foregroundColor(.gray)
+                            .progressViewStyle(CircularProgressViewStyle(tint: faceDetectionManager.faceDetected ? .green : .white))
+                        Text(faceDetectionManager.faceDetected ? "Face detected! Waking up..." : "Face detection active...")
+                            .foregroundColor(faceDetectionManager.faceDetected ? .green : .gray)
+                            .font(.system(size: 16, weight: .medium))
                     }
                     .padding(.top, 40)
+                    .animation(.easeInOut(duration: 0.2), value: faceDetectionManager.faceDetected)
                 }
             }
         }
