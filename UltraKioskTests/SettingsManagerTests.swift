@@ -55,6 +55,14 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(sut.faceDetectionInterval, 1.0, accuracy: 0.001)
     }
 
+    func testDefaultValues_showDebugInfo_isTrue() {
+        XCTAssertTrue(sut.showDebugInfo)
+    }
+
+    func testDefaultValues_wakeupMethod_isFace() {
+        XCTAssertEqual(sut.wakeupMethod, "face")
+    }
+
     func testDefaultValues_voiceSampleRate_is16000() {
         XCTAssertEqual(sut.voiceSampleRate, 16000)
     }

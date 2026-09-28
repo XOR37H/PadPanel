@@ -35,6 +35,7 @@ class SettingsManager: ObservableObject {
     @Published var faceDetectionInterval: Double = 1.0 // seconds between detections
     @Published var wakeupMethod: String = "face" // "face" or "motion"
     @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
+    @Published var showDebugInfo: Bool = true
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
     
@@ -68,6 +69,7 @@ class SettingsManager: ObservableObject {
         static let faceDetectionInterval = "faceDetectionInterval"
         static let wakeupMethod = "wakeupMethod"
         static let motionSensitivity = "motionSensitivity"
+        static let showDebugInfo = "showDebugInfo"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -200,6 +202,12 @@ class SettingsManager: ObservableObject {
             motionSensitivity = 0.08
         }
         
+        if defaults.object(forKey: Keys.showDebugInfo) != nil {
+            showDebugInfo = defaults.bool(forKey: Keys.showDebugInfo)
+        } else {
+            showDebugInfo = true
+        }
+        
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
             voiceSampleRate = sr
@@ -275,6 +283,7 @@ class SettingsManager: ObservableObject {
         defaults.set(faceDetectionInterval, forKey: Keys.faceDetectionInterval)
         defaults.set(wakeupMethod, forKey: Keys.wakeupMethod)
         defaults.set(motionSensitivity, forKey: Keys.motionSensitivity)
+        defaults.set(showDebugInfo, forKey: Keys.showDebugInfo)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)
@@ -360,6 +369,7 @@ class SettingsManager: ObservableObject {
             "faceDetectionInterval": faceDetectionInterval,
             "wakeupMethod": wakeupMethod,
             "motionSensitivity": motionSensitivity,
+            "showDebugInfo": showDebugInfo,
             "voiceSampleRate": voiceSampleRate,
             "voiceTimeout": voiceTimeout,
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
@@ -392,6 +402,7 @@ class SettingsManager: ObservableObject {
         faceDetectionInterval = settings["faceDetectionInterval"] as? Double ?? faceDetectionInterval
         wakeupMethod = settings["wakeupMethod"] as? String ?? wakeupMethod
         if let sens = settings["motionSensitivity"] as? Double { motionSensitivity = sens }
+        if let dbg = settings["showDebugInfo"] as? Bool { showDebugInfo = dbg }
 
         homeAssistantConversationId = settings["homeAssistantConversationId"] as? String ?? homeAssistantConversationId
         homeAssistantConversationAgent = settings["homeAssistantConversationAgent"] as? String ?? homeAssistantConversationAgent
@@ -428,6 +439,7 @@ class SettingsManager: ObservableObject {
         faceDetectionInterval = 1.0
         wakeupMethod = "face"
         motionSensitivity = 0.08
+        showDebugInfo = true
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

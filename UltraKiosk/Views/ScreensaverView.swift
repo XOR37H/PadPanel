@@ -43,17 +43,24 @@ struct ScreensaverView: View {
                                 .font(.system(size: 16, weight: .medium))
                         }
                         
-                        // Live diagnostics: shows whether camera frames are arriving and motion score
-                        HStack(spacing: 14) {
-                            Text("Frames: \(faceDetectionManager.framesReceived)")
-                                .font(.system(size: 13, weight: .regular, design: .monospaced))
-                                .foregroundColor(.gray.opacity(0.85))
-                            
-                            if isMotionMode {
-                                Text(String(format: "Motion: %.1f%% / %.0f%%", faceDetectionManager.motionScore * 100, settings.motionSensitivity * 100))
+                        if settings.showDebugInfo {
+                            // Live diagnostics: shows whether camera frames are arriving and motion score
+                            HStack(spacing: 14) {
+                                Text("Frames: \(faceDetectionManager.framesReceived)")
                                     .font(.system(size: 13, weight: .regular, design: .monospaced))
-                                    .foregroundColor(faceDetectionManager.motionScore >= settings.motionSensitivity ? .green : .gray.opacity(0.85))
+                                    .foregroundColor(.gray.opacity(0.85))
+                                
+                                if isMotionMode {
+                                    Text(String(format: "Motion: %.1f%% / %.0f%%", faceDetectionManager.motionScore * 100, settings.motionSensitivity * 100))
+                                        .font(.system(size: 13, weight: .regular, design: .monospaced))
+                                        .foregroundColor(faceDetectionManager.motionScore >= settings.motionSensitivity ? .green : .gray.opacity(0.85))
+                                }
                             }
+                            
+                            // Camera status line (identifies if camera hardware is running or why it stopped)
+                            Text(faceDetectionManager.cameraStatusText)
+                                .font(.system(size: 12, weight: .regular, design: .monospaced))
+                                .foregroundColor(faceDetectionManager.cameraStatusText.contains("denied") || faceDetectionManager.cameraStatusText.contains("failed") ? .red : .gray.opacity(0.7))
                         }
                     }
                     .padding(.top, 40)

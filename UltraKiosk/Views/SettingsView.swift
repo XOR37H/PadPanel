@@ -261,6 +261,8 @@ struct SettingsView: View {
                     }
                 }
             }
+            
+            Toggle("Show camera debug info", isOn: $settings.showDebugInfo)
         }
     }
     

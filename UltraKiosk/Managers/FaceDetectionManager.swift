@@ -8,6 +8,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
     @Published var isDetecting = false
     @Published var motionScore: Double = 0.0
     @Published var framesReceived: Int = 0
+    @Published var cameraStatusText: String = "Initializing..."
     
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
@@ -65,31 +66,58 @@ class FaceDetectionManager: NSObject, ObservableObject {
     
     private func configureCaptureSession() {
         let session = AVCaptureSession()
-        session.sessionPreset = .medium
+        session.beginConfiguration()
+        defer { session.commitConfiguration() }
         
-        guard let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front),
-              let input = try? AVCaptureDeviceInput(device: frontCamera) else {
-            AppLogger.app.warningConditional("Front camera input not available during configureCaptureSession.")
+        // 640x480 (VGA) is universally supported by the front camera on all iPads including iPad Air 2
+        if session.canSetSessionPreset(.vga640x480) {
+            session.sessionPreset = .vga640x480
+        } else if session.canSetSessionPreset(.medium) {
+            session.sessionPreset = .medium
+        }
+        
+        guard let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
+            let errorMsg = "No front camera device found"
+            AppLogger.app.warningConditional(errorMsg)
+            DispatchQueue.main.async { self.cameraStatusText = errorMsg }
             return
         }
         
-        if session.canAddInput(input) {
-            session.addInput(input)
+        guard let input = try? AVCaptureDeviceInput(device: frontCamera) else {
+            let errorMsg = "Cannot create AVCaptureDeviceInput for front camera"
+            AppLogger.app.warningConditional(errorMsg)
+            DispatchQueue.main.async { self.cameraStatusText = errorMsg }
+            return
         }
+        
+        guard session.canAddInput(input) else {
+            let errorMsg = "Cannot add camera input to session"
+            AppLogger.app.warningConditional(errorMsg)
+            DispatchQueue.main.async { self.cameraStatusText = errorMsg }
+            return
+        }
+        session.addInput(input)
         
         videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         
-        if session.canAddOutput(videoOutput) {
-            session.addOutput(videoOutput)
+        guard session.canAddOutput(videoOutput) else {
+            let errorMsg = "Cannot add videoOutput to session"
+            AppLogger.app.warningConditional(errorMsg)
+            DispatchQueue.main.async { self.cameraStatusText = errorMsg }
+            return
         }
+        session.addOutput(videoOutput)
         
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer?.videoGravity = .resizeAspectFill
         
         self.captureSession = session
         AppLogger.app.infoConditional("Camera capture session successfully configured.")
+        DispatchQueue.main.async {
+            self.cameraStatusText = "Session configured"
+        }
     }
     
     func startDetection() {
@@ -98,13 +126,19 @@ class FaceDetectionManager: NSObject, ObservableObject {
         case .authorized:
             startDetectionInternal()
         case .notDetermined:
+            DispatchQueue.main.async { self.cameraStatusText = "Requesting permission..." }
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 if granted {
                     self?.startDetectionInternal()
+                } else {
+                    DispatchQueue.main.async { self?.cameraStatusText = "Camera permission denied" }
                 }
             }
-        default:
+        case .denied, .restricted:
+            DispatchQueue.main.async { self.cameraStatusText = "Camera access denied in Settings" }
             AppLogger.app.warningConditional("Camera access not authorized for face/motion detection.")
+        @unknown default:
+            break
         }
     }
     
@@ -118,15 +152,18 @@ class FaceDetectionManager: NSObject, ObservableObject {
             
             self.previousGridSample.removeAll()
             
-            if self.captureSession?.isRunning == false {
+            let isRunningBefore = self.captureSession?.isRunning ?? false
+            if !isRunningBefore {
                 self.captureSession?.startRunning()
             }
+            let isRunningAfter = self.captureSession?.isRunning ?? false
             
             DispatchQueue.main.async {
                 self.faceDetected = false
                 self.framesReceived = 0
                 self.motionScore = 0.0
                 self.isDetecting = true
+                self.cameraStatusText = isRunningAfter ? "Camera running" : "Camera failed to start"
             }
         }
     }
@@ -142,6 +179,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
                 self.isDetecting = false
                 self.faceDetected = false
                 self.motionScore = 0.0
+                self.cameraStatusText = "Camera stopped"
             }
         }
     }
