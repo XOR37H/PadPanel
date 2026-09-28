@@ -1,3 +1,4 @@
+```yaml
 name: Build UltraKiosk for iOS 15
 
 on:
@@ -24,10 +25,11 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
 
-          echo "Xcode:"
+          echo "========== XCODE =========="
           xcodebuild -version
 
-          echo "SDK:"
+          echo
+          echo "========== IOS SDK =========="
           xcrun --sdk iphoneos --show-sdk-version
 
       - name: Resolve Swift packages
@@ -40,6 +42,8 @@ jobs:
       - name: Build unsigned device archive
         run: |
           rm -rf build
+
+          set -o pipefail
 
           xcodebuild archive \
             -project UltraKiosk.xcodeproj \
@@ -54,57 +58,38 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1 | tee build.log
+
+      - name: Show compiler errors
+        if: failure()
+        run: |
+          echo
+          echo "=========================================="
+          echo "       SWIFT COMPILER ERRORS"
+          echo "=========================================="
+
+          grep -B 5 -A 10 -E "error:|fatal error:" build.log || true
+
+          echo
+          echo "=========================================="
+          echo "          LAST 200 BUILD LOG LINES"
+          echo "=========================================="
+
+          tail -n 200 build.log
 
       - name: Show built application information
+        if: success()
         run: |
-          APP=$(find build/UltraKiosk.xcarchive/Products/Applications -maxdepth 1 -name "*.app" -print -quit)
+          APP=$(find build/UltraKiosk.xcarchive/Products/Applications \
+            -maxdepth 1 \
+            -name "*.app" \
+            -print \
+            -quit)
 
-          echo "Application:"
+          echo "========== APPLICATION =========="
           echo "$APP"
 
           echo
-          echo "Architecture:"
-          file "$APP/UltraKiosk"
-
-          echo
-          echo "Deployment target:"
-          /usr/libexec/PlistBuddy \
-            -c "Print :MinimumOSVersion" \
-            "$APP/Info.plist" || true
-
-          echo
-          echo "Embedded frameworks:"
-          find "$APP/Frameworks" -maxdepth 1 -type d -print 2>/dev/null || true
-
-      - name: Package IPA
-        run: |
-          rm -rf Payload
-          mkdir Payload
-
-          cp -R \
-            build/UltraKiosk.xcarchive/Products/Applications/*.app \
-            Payload/
-
-          zip -r \
-            UltraKiosk_iOS15_arm64_unsigned.ipa \
-            Payload
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ios15-build-${{ github.run_number }}
-          name: UltraKiosk iOS 15 Build ${{ github.run_number }}
-          body: |
-            UltraKiosk built specifically for testing on
-            iOS/iPadOS 15.x devices.
-
-            Build configuration:
-            - Xcode 16.4
-            - iOS deployment target 15.0
-            - arm64
-            - Device build
-            - Unsigned; intended for TrollStore installation
-          draft: false
-          prerelease: true
-          files: UltraKiosk_iOS15_arm64_unsigned.ipa
+          echo "========== AR
+```
