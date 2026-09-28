@@ -47,7 +47,8 @@ class AudioManager: NSObject, ObservableObject {
 
     private var silenceTimer: Timer?
     private var lastRecognizedText: String = ""
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(languageCode: "de"))
+    // private let speechRecognizer = SFSpeechRecognizer(locale: Locale(languageCode: "de"))
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "de"))
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     
