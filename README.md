@@ -1,4 +1,4 @@
-# UltraKiosk
+# UltraKiosk iOS 15 build for legacy devices
 
 [![Build](https://github.com/mirkosertic/UltraKiosk/actions/workflows/build.yaml/badge.svg)](https://github.com/mirkosertic/UltraKiosk/actions/workflows/build.yaml)
 
