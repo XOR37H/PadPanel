@@ -1,5 +1,4 @@
-# PadPanel iOS 15 build for legacy devices
-
+# PadPanel - A Home automation kiosk for older iOS 15.x.x legacy devices.
 
 PadPanel is a lightweight iOS app that displays any webpage in full‑screen kiosk mode. It can also act as a voice satellite. A common use case is a wall‑mounted iPad as a smart display.
 
