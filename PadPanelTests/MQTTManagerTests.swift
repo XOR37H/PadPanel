@@ -1,6 +1,6 @@
 import XCTest
 import UIKit
-@testable import UltraKiosk
+@testable import PadPanel
 
 /// Tests for the pure-logic static helpers on MQTTManager.
 /// All tested functions are static, so no MQTTManager instance (and therefore no

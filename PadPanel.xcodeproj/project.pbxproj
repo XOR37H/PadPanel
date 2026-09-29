@@ -19,37 +19,37 @@
 			containerPortal = 802DF9A72E6391500079EC75 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 802DF9AE2E6391500079EC75;
-			remoteInfo = UltraKiosk;
+			remoteInfo = PadPanel;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		802DF9AF2E6391500079EC75 /* UltraKiosk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = UltraKiosk.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AC83EF2D2F9E849E004F788B /* UltraKioskTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = UltraKioskTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		802DF9AF2E6391500079EC75 /* PadPanel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PadPanel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AC83EF2D2F9E849E004F788B /* PadPanelTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PadPanelTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		807F9C732E639DF3002EE0C1 /* Exceptions for "UltraKiosk" folder in "UltraKiosk" target */ = {
+		807F9C732E639DF3002EE0C1 /* Exceptions for "PadPanel" folder in "PadPanel" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 802DF9AE2E6391500079EC75 /* UltraKiosk */;
+			target = 802DF9AE2E6391500079EC75 /* PadPanel */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		802DF9B12E6391500079EC75 /* UltraKiosk */ = {
+		802DF9B12E6391500079EC75 /* PadPanel */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				807F9C732E639DF3002EE0C1 /* Exceptions for "UltraKiosk" folder in "UltraKiosk" target */,
+				807F9C732E639DF3002EE0C1 /* Exceptions for "PadPanel" folder in "PadPanel" target */,
 			);
-			path = UltraKiosk;
+			path = PadPanel;
 			sourceTree = "<group>";
 		};
-		AC83EF2E2F9E849E004F788B /* UltraKioskTests */ = {
+		AC83EF2E2F9E849E004F788B /* PadPanelTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = UltraKioskTests;
+			path = PadPanelTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -79,8 +79,8 @@
 		802DF9A62E6391500079EC75 = {
 			isa = PBXGroup;
 			children = (
-				802DF9B12E6391500079EC75 /* UltraKiosk */,
-				AC83EF2E2F9E849E004F788B /* UltraKioskTests */,
+				802DF9B12E6391500079EC75 /* PadPanel */,
+				AC83EF2E2F9E849E004F788B /* PadPanelTests */,
 				802DF9B02E6391500079EC75 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -88,8 +88,8 @@
 		802DF9B02E6391500079EC75 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				802DF9AF2E6391500079EC75 /* UltraKiosk.app */,
-				AC83EF2D2F9E849E004F788B /* UltraKioskTests.xctest */,
+				802DF9AF2E6391500079EC75 /* PadPanel.app */,
+				AC83EF2D2F9E849E004F788B /* PadPanelTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -97,9 +97,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		802DF9AE2E6391500079EC75 /* UltraKiosk */ = {
+		802DF9AE2E6391500079EC75 /* PadPanel */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 802DF9D02E6391500079EC75 /* Build configuration list for PBXNativeTarget "UltraKiosk" */;
+			buildConfigurationList = 802DF9D02E6391500079EC75 /* Build configuration list for PBXNativeTarget "PadPanel" */;
 			buildPhases = (
 				802DF9AB2E6391500079EC75 /* Sources */,
 				802DF9AC2E6391500079EC75 /* Frameworks */,
@@ -110,22 +110,22 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				802DF9B12E6391500079EC75 /* UltraKiosk */,
+				802DF9B12E6391500079EC75 /* PadPanel */,
 			);
-			name = UltraKiosk;
+			name = PadPanel;
 			packageProductDependencies = (
 				80A5915C2E66C9DC004BBBE0 /* CocoaMQTT */,
 				80A5915E2E66C9DC004BBBE0 /* CocoaMQTTWebSocket */,
 				80A591672E66D511004BBBE0 /* Starscream */,
 				8057283B2EB8C744003C0691 /* Porcupine */,
 			);
-			productName = UltraKiosk;
-			productReference = 802DF9AF2E6391500079EC75 /* UltraKiosk.app */;
+			productName = PadPanel;
+			productReference = 802DF9AF2E6391500079EC75 /* PadPanel.app */;
 			productType = "com.apple.product-type.application";
 		};
-		AC83EF2C2F9E849E004F788B /* UltraKioskTests */ = {
+		AC83EF2C2F9E849E004F788B /* PadPanelTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = AC83EF352F9E849E004F788B /* Build configuration list for PBXNativeTarget "UltraKioskTests" */;
+			buildConfigurationList = AC83EF352F9E849E004F788B /* Build configuration list for PBXNativeTarget "PadPanelTests" */;
 			buildPhases = (
 				AC83EF292F9E849E004F788B /* Sources */,
 				AC83EF2A2F9E849E004F788B /* Frameworks */,
@@ -137,13 +137,13 @@
 				AC83EF322F9E849E004F788B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				AC83EF2E2F9E849E004F788B /* UltraKioskTests */,
+				AC83EF2E2F9E849E004F788B /* PadPanelTests */,
 			);
-			name = UltraKioskTests;
+			name = PadPanelTests;
 			packageProductDependencies = (
 			);
-			productName = UltraKioskTests;
-			productReference = AC83EF2D2F9E849E004F788B /* UltraKioskTests.xctest */;
+			productName = PadPanelTests;
+			productReference = AC83EF2D2F9E849E004F788B /* PadPanelTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -165,7 +165,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 802DF9AA2E6391500079EC75 /* Build configuration list for PBXProject "UltraKiosk" */;
+			buildConfigurationList = 802DF9AA2E6391500079EC75 /* Build configuration list for PBXProject "PadPanel" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -184,8 +184,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				802DF9AE2E6391500079EC75 /* UltraKiosk */,
-				AC83EF2C2F9E849E004F788B /* UltraKioskTests */,
+				802DF9AE2E6391500079EC75 /* PadPanel */,
+				AC83EF2C2F9E849E004F788B /* PadPanelTests */,
 			);
 		};
 /* End PBXProject section */
@@ -227,7 +227,7 @@
 /* Begin PBXTargetDependency section */
 		AC83EF322F9E849E004F788B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 802DF9AE2E6391500079EC75 /* UltraKiosk */;
+			target = 802DF9AE2E6391500079EC75 /* PadPanel */;
 			targetProxy = AC83EF312F9E849E004F788B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -363,13 +363,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = UltraKiosk/UltraKiosk.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PadPanel/PadPanel.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PUP5F535RV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = UltraKiosk/Info.plist;
+				INFOPLIST_FILE = PadPanel/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -398,13 +398,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = UltraKiosk/UltraKiosk.entitlements;
+				CODE_SIGN_ENTITLEMENTS = PadPanel/PadPanel.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = PUP5F535RV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = UltraKiosk/Info.plist;
+				INFOPLIST_FILE = PadPanel/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -450,7 +450,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/UltraKiosk.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/UltraKiosk";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PadPanel.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PadPanel";
 			};
 			name = Debug;
 		};
@@ -476,14 +476,14 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 2;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/UltraKiosk.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/UltraKiosk";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/PadPanel.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/PadPanel";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		802DF9AA2E6391500079EC75 /* Build configuration list for PBXProject "UltraKiosk" */ = {
+		802DF9AA2E6391500079EC75 /* Build configuration list for PBXProject "PadPanel" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				802DF9CE2E6391500079EC75 /* Debug */,
@@ -492,7 +492,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		802DF9D02E6391500079EC75 /* Build configuration list for PBXNativeTarget "UltraKiosk" */ = {
+		802DF9D02E6391500079EC75 /* Build configuration list for PBXNativeTarget "PadPanel" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				802DF9D12E6391500079EC75 /* Debug */,
@@ -501,7 +501,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		AC83EF352F9E849E004F788B /* Build configuration list for PBXNativeTarget "UltraKioskTests" */ = {
+		AC83EF352F9E849E004F788B /* Build configuration list for PBXNativeTarget "PadPanelTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				AC83EF332F9E849E004F788B /* Debug */,

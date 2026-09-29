@@ -1,4 +1,4 @@
-name: Build UltraKiosk for iOS 15
+name: Build PadPanel for iOS 15
 
 on:
   workflow_dispatch:
@@ -42,8 +42,8 @@ jobs:
           pwd
           ls -la
 
-          if [ ! -d "UltraKiosk.xcodeproj" ]; then
-            echo "::error::UltraKiosk.xcodeproj was not found in the root directory!"
+          if [ ! -d "PadPanel.xcodeproj" ]; then
+            echo "::error::PadPanel.xcodeproj was not found in the root directory!"
             echo "Searching for any .xcodeproj in the repository:"
             find . -name "*.xcodeproj" -maxdepth 3
             exit 1
@@ -51,14 +51,14 @@ jobs:
 
           echo
           echo "========== PROJECT SCHEMES =========="
-          xcodebuild -list -project UltraKiosk.xcodeproj
+          xcodebuild -list -project PadPanel.xcodeproj
 
       - name: Resolve Swift packages
         run: |
           # Resolve packages for project; supports git submodules and system scm
           xcodebuild \
             -resolvePackageDependencies \
-            -project UltraKiosk.xcodeproj \
+            -project PadPanel.xcodeproj \
             -scmProvider system
 
       - name: Build unsigned device archive
@@ -67,18 +67,18 @@ jobs:
           set -o pipefail
 
           # Determine the active scheme name automatically
-          SCHEME=$(xcodebuild -list -project UltraKiosk.xcodeproj 2>/dev/null | awk '/Schemes:/{flag=1; next} flag && NF {print $1; exit}')
+          SCHEME=$(xcodebuild -list -project PadPanel.xcodeproj 2>/dev/null | awk '/Schemes:/{flag=1; next} flag && NF {print $1; exit}')
           if [ -z "$SCHEME" ]; then
-            SCHEME="UltraKiosk"
+            SCHEME="PadPanel"
           fi
           echo "Building scheme: $SCHEME"
 
           xcodebuild archive \
-            -project UltraKiosk.xcodeproj \
+            -project PadPanel.xcodeproj \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath "$PWD/build/UltraKiosk.xcarchive" \
+            -archivePath "$PWD/build/PadPanel.xcarchive" \
             -destination "generic/platform=iOS" \
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             ARCHS=arm64 \
@@ -111,7 +111,7 @@ jobs:
       - name: Show built application information
         if: success()
         run: |
-          APP=$(find build/UltraKiosk.xcarchive/Products/Applications \
+          APP=$(find build/PadPanel.xcarchive/Products/Applications \
             -maxdepth 1 \
             -name "*.app" \
             -print \
@@ -144,7 +144,7 @@ jobs:
           mkdir Payload
 
           cp -R \
-            build/UltraKiosk.xcarchive/Products/Applications/*.app \
+            build/PadPanel.xcarchive/Products/Applications/*.app \
             Payload/
 
           # Ensure MinimumOSVersion is explicitly 15.0 for iPad Air 2 / iOS 15.8.8
@@ -157,7 +157,7 @@ jobs:
           fi
 
           zip -qr -y \
-            UltraKiosk_iOS15_arm64_unsigned.ipa \
+            PadPanel_iOS15_arm64_unsigned.ipa \
             Payload
 
       - name: Create GitHub Release
@@ -165,9 +165,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios15-build-${{ github.run_number }}
-          name: UltraKiosk iOS 15 Build ${{ github.run_number }}
+          name: PadPanel iOS 15 Build ${{ github.run_number }}
           body: |
-            UltraKiosk iOS 15 compatibility build.
+            PadPanel iOS 15 compatibility build.
 
             Build configuration:
             - iOS deployment target 15.0
@@ -176,4 +176,4 @@ jobs:
             - Unsigned (TrollStore installation)
           draft: false
           prerelease: true
-          files: UltraKiosk_iOS15_arm64_unsigned.ipa
+          files: PadPanel_iOS15_arm64_unsigned.ipa

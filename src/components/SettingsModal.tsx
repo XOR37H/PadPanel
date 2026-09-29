@@ -125,7 +125,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ultrakiosk-settings-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `padpanel-settings-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -194,7 +194,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           >
             <span>Cancel</span>
           </button>
-          <div className="text-base font-semibold tracking-tight">UltraKiosk Settings</div>
+          <div className="text-base font-semibold tracking-tight">PadPanel Settings</div>
           <button
             onClick={handleSave}
             className="px-4 py-1.5 rounded-full bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white font-semibold text-sm transition"
@@ -753,7 +753,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span>iPad Air 2 (iOS 15.8.8) Kiosk Setup Guide</span>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  UltraKiosk is fully compiled and polyfilled with <strong>Safari 15 / iOS 15 WebKit</strong> compatibility (ES2018 target, webkit-playsinline video, AudioContext unlock, and standalone PWA display mode). Follow these steps to configure your iPad Air 2 as a dedicated wall-mounted smart display:
+                  PadPanel is fully compiled and polyfilled with <strong>Safari 15 / iOS 15 WebKit</strong> compatibility (ES2018 target, webkit-playsinline video, AudioContext unlock, and standalone PWA display mode). Follow these steps to configure your iPad Air 2 as a dedicated wall-mounted smart display:
                 </p>
 
                 {/* Step 1: Add to Home Screen */}
@@ -763,7 +763,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Step 1: Run Fullscreen (Add to Home Screen)</span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    In Safari on your iPad Air 2, tap the <strong>Share button</strong> (square with arrow up) at the top of the browser, then tap <strong>&ldquo;Add to Home Screen&rdquo;</strong>. Launch UltraKiosk from the home screen icon to run in pure full-screen mode with no Safari address bar or navigation buttons.
+                    In Safari on your iPad Air 2, tap the <strong>Share button</strong> (square with arrow up) at the top of the browser, then tap <strong>&ldquo;Add to Home Screen&rdquo;</strong>. Launch PadPanel from the home screen icon to run in pure full-screen mode with no Safari address bar or navigation buttons.
                   </p>
                 </div>
 
@@ -774,7 +774,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Step 2: Prevent Screen Auto-Lock</span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    On your iPad, open <strong>Settings &rarr; Display &amp; Brightness &rarr; Auto-Lock</strong> and set it to <strong>&ldquo;Never&rdquo;</strong>. UltraKiosk will automatically dim the display and show the OLED clock screensaver during inactivity.
+                    On your iPad, open <strong>Settings &rarr; Display &amp; Brightness &rarr; Auto-Lock</strong> and set it to <strong>&ldquo;Never&rdquo;</strong>. PadPanel will automatically dim the display and show the OLED clock screensaver during inactivity.
                   </p>
                 </div>
 
@@ -785,7 +785,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <span>Step 3: Lock Display with Guided Access (Optional)</span>
                   </div>
                   <p className="text-xs text-slate-300">
-                    Open <strong>Settings &rarr; Accessibility &rarr; Guided Access</strong> and turn it ON. Then launch UltraKiosk and <strong>triple-click the Home button</strong> on your iPad Air 2 to lock it into kiosk mode so guests cannot leave the app.
+                    Open <strong>Settings &rarr; Accessibility &rarr; Guided Access</strong> and turn it ON. Then launch PadPanel and <strong>triple-click the Home button</strong> on your iPad Air 2 to lock it into kiosk mode so guests cannot leave the app.
                   </p>
                 </div>
               </div>

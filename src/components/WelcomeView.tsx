@@ -11,12 +11,12 @@ export const WelcomeView: React.FC = () => {
       <div className="relative z-10 text-center max-w-[90%] w-full flex flex-col items-center">
         {/* Title */}
         <h1 className="text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-100 to-white bg-clip-text text-transparent drop-shadow-[0_4px_20px_rgba(0,0,0,0.3)] mb-8">
-          UltraKiosk
+          PadPanel
         </h1>
 
         {/* Configuration Card matching iOS hardware */}
         <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 sm:p-8 shadow-2xl text-center max-w-[600px] w-full mx-auto text-white/90 text-base sm:text-lg md:text-xl font-normal leading-relaxed">
-          Welcome to UltraKiosk
+          Welcome to PadPanel
           <br />
           <span className="text-amber-400 font-semibold">3 x Tap Settings</span> in the top corner to configure your kiosk experience.
         </div>

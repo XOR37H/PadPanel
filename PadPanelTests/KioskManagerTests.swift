@@ -1,6 +1,6 @@
 import XCTest
 import Combine
-@testable import UltraKiosk
+@testable import PadPanel
 
 final class KioskManagerTests: XCTestCase {
 

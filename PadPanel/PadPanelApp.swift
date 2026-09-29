@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct UltraKioskApp: App {
+struct PadPanelApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -9,3 +9,4 @@ struct UltraKioskApp: App {
         }
     }
 }
+

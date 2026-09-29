@@ -17,7 +17,7 @@ final class WebServerManager: ObservableObject {
 
     private var listener: NWListener?
     private var activePort: Int?
-    private let queue = DispatchQueue(label: "ultrakiosk.webserver.queue", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "padpanel.webserver.queue", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private let settings = SettingsManager.shared
 
@@ -498,7 +498,7 @@ final class WebServerManager: ObservableObject {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>UltraKiosk Remote Admin</title>
+            <title>PadPanel Remote Admin</title>
             <style>
                 :root {
                     --bg: #121418;
@@ -545,7 +545,7 @@ final class WebServerManager: ObservableObject {
         <body>
             <div class="container">
                 <header>
-                    <h1>UltraKiosk <span class="badge">Online</span></h1>
+                    <h1>PadPanel <span class="badge">Online</span></h1>
                     <div style="font-size: 13px; color: var(--subtext);">\(UIDevice.current.name)</div>
                 </header>
 

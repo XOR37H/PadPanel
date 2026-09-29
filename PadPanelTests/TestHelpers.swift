@@ -1,5 +1,5 @@
 import Foundation
-@testable import UltraKiosk
+@testable import PadPanel
 
 // MARK: - MockBrightnessManager
 

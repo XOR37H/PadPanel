@@ -48,7 +48,7 @@ export const TripleTapArea: React.FC<TripleTapAreaProps> = ({ onTrigger }) => {
       <div
         onClick={handleClick}
         onTouchEnd={handleClick}
-        title="Triple-tap to open UltraKiosk Settings (or press 'S')"
+        title="Triple-tap to open PadPanel Settings (or press 'S')"
         className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition flex items-center justify-center cursor-pointer border border-white/15 backdrop-blur-sm relative group"
       >
         <Settings className="w-4 h-4 text-white/40 group-hover:text-white/80 transition-colors" />

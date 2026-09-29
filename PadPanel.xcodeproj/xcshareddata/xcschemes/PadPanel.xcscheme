@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "802DF9AE2E6391500079EC75"
-               BuildableName = "UltraKiosk.app"
-               BlueprintName = "UltraKiosk"
-               ReferencedContainer = "container:UltraKiosk.xcodeproj">
+               BuildableName = "PadPanel.app"
+               BlueprintName = "PadPanel"
+               ReferencedContainer = "container:PadPanel.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "AC83EF2C2F9E849E004F788B"
-               BuildableName = "UltraKioskTests.xctest"
-               BlueprintName = "UltraKioskTests"
-               ReferencedContainer = "container:UltraKiosk.xcodeproj">
+               BuildableName = "PadPanelTests.xctest"
+               BlueprintName = "PadPanelTests"
+               ReferencedContainer = "container:PadPanel.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -58,9 +58,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "802DF9AE2E6391500079EC75"
-            BuildableName = "UltraKiosk.app"
-            BlueprintName = "UltraKiosk"
-            ReferencedContainer = "container:UltraKiosk.xcodeproj">
+            BuildableName = "PadPanel.app"
+            BlueprintName = "PadPanel"
+            ReferencedContainer = "container:PadPanel.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -75,9 +75,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "802DF9AE2E6391500079EC75"
-            BuildableName = "UltraKiosk.app"
-            BlueprintName = "UltraKiosk"
-            ReferencedContainer = "container:UltraKiosk.xcodeproj">
+            BuildableName = "PadPanel.app"
+            BlueprintName = "PadPanel"
+            ReferencedContainer = "container:PadPanel.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

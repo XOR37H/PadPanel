@@ -2,7 +2,7 @@
 //
 // This file exists solely as a manifest for Dependabot dependency tracking.
 // It is NOT used by the Xcode build — dependencies are managed through
-// UltraKiosk.xcodeproj (File → Packages in Xcode).
+// PadPanel.xcodeproj (File → Packages in Xcode).
 //
 // When Dependabot opens a PR bumping a version here, apply the same update
 // in Xcode via File → Packages → "Update to Latest Package Versions", or
@@ -11,7 +11,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "UltraKiosk",
+    name: "PadPanel",
     platforms: [.iOS(.v17)],
     dependencies: [
         // MQTT client

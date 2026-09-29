@@ -214,10 +214,10 @@ struct KioskWebView: UIViewRepresentable {
             <div class="bg-decoration"></div>
 
             <div class="container">
-                <h1 class="app-title">UltraKiosk</h1>
+                <h1 class="app-title">PadPanel</h1>
 
                 <div class="config-text">
-                    Welcome to UltraKiosk<br>
+                    Welcome to PadPanel<br>
                     <span class="config-highlight">3 x Tap Settings</span> in the top corner to configure your kiosk experience.
                 </div>
             </div>

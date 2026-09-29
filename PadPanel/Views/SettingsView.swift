@@ -638,5 +638,5 @@ extension Notification.Name {
     static let openSettings = Notification.Name("OpenSettings")
     /// Posted after settings are saved and the WKWebView cache has been cleared.
     /// Every KioskWebView reloads its content when it receives this notification.
-    static let reloadAllWebViews = Notification.Name("UltraKiosk.reloadAllWebViews")
+    static let reloadAllWebViews = Notification.Name("PadPanel.reloadAllWebViews")
 }

@@ -1,5 +1,5 @@
 import XCTest
-@testable import UltraKiosk
+@testable import PadPanel
 
 // MARK: - Helpers
 

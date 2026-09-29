@@ -1,6 +1,6 @@
 {
-  "name": "UltraKiosk",
-  "short_name": "UltraKiosk",
+  "name": "PadPanel",
+  "short_name": "PadPanel",
   "description": "Smart Home Assistant Kiosk Display for iPad",
   "start_url": "/",
   "display": "standalone",
