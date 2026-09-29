@@ -24,7 +24,7 @@ PadPanel is a lightweight iOS app built for legacy devices such as the iPad Air2
 
 ## Releases
 
-[Download the latest release](../../releases/latest)
+[Download the latest release](../../releases/latest/download/PadPanel_iOS15_arm64_unsigned.ipa)
 
 
 ## License
