@@ -20,4 +20,3 @@ PadPanel is a lightweight iOS app that displays any webpage in full‑screen kio
 
 ## License
 MIT License. See `LICENSE` for details.
- 
