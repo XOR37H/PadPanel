@@ -1,0 +1,676 @@
+import Foundation
+import Network
+import Combine
+import UIKit
+
+/// Lightweight zero-dependency embedded HTTP server for remote kiosk management.
+/// Powered by Apple's Network.framework (iOS 12+ / iOS 15).
+final class WebServerManager: ObservableObject {
+    static let shared = WebServerManager()
+
+    @Published var isRunning = false
+    @Published var serverURL: String = ""
+    @Published var lastError: String? = nil
+
+    private var listener: NWListener?
+    private let queue = DispatchQueue(label: "ultrakiosk.webserver.queue", qos: .userInitiated)
+    private var cancellables = Set<AnyCancellable>()
+    private let settings = SettingsManager.shared
+
+    init() {
+        setupObservers()
+    }
+
+    deinit {
+        stop()
+    }
+
+    private func setupObservers() {
+        // Watch enableWebServer and webServerPort
+        Publishers.CombineLatest(settings.$enableWebServer, settings.$webServerPort)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] enabled, port in
+                if enabled {
+                    self?.restart(port: port)
+                } else {
+                    self?.stop()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    func start() {
+        guard settings.enableWebServer else { return }
+        restart(port: settings.webServerPort)
+    }
+
+    func restart(port: Int) {
+        stop()
+        guard settings.enableWebServer else { return }
+        startListener(port: port)
+    }
+
+    func stop() {
+        listener?.cancel()
+        listener = nil
+        DispatchQueue.main.async {
+            self.isRunning = false
+            self.serverURL = ""
+        }
+    }
+
+    private func startListener(port: Int) {
+        let validPort = UInt16(min(max(port, 1024), 65535))
+        guard let endpointPort = NWEndpoint.Port(rawValue: validPort) else {
+            DispatchQueue.main.async {
+                self.lastError = "Invalid port: \(port)"
+                self.isRunning = false
+            }
+            return
+        }
+
+        do {
+            let parameters = NWParameters.tcp
+            let newListener = try NWListener(using: parameters, on: endpointPort)
+            
+            newListener.stateUpdateHandler = { [weak self] state in
+                guard let self = self else { return }
+                DispatchQueue.main.async {
+                    switch state {
+                    case .ready:
+                        self.isRunning = true
+                        self.lastError = nil
+                        let ip = self.getWiFiAddress() ?? "localhost"
+                        self.serverURL = "http://\(ip):\(validPort)"
+                        AppLogger.app.info("Remote Web Server listening on \(self.serverURL)")
+                    case .failed(let error):
+                        self.isRunning = false
+                        self.lastError = error.localizedDescription
+                        AppLogger.app.error("Remote Web Server failed: \(error.localizedDescription)")
+                    case .cancelled:
+                        self.isRunning = false
+                    default:
+                        break
+                    }
+                }
+            }
+
+            newListener.newConnectionHandler = { [weak self] connection in
+                self?.handleConnection(connection)
+            }
+
+            newListener.start(queue: queue)
+            self.listener = newListener
+
+        } catch {
+            DispatchQueue.main.async {
+                self.lastError = error.localizedDescription
+                self.isRunning = false
+            }
+            AppLogger.app.error("Could not start Web Server: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Connection & HTTP Handling
+
+    private func handleConnection(_ connection: NWConnection) {
+        connection.start(queue: queue)
+        receiveHTTPRequest(connection: connection)
+    }
+
+    private func receiveHTTPRequest(connection: NWConnection) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, error in
+            guard let self = self else {
+                connection.cancel()
+                return
+            }
+
+            if let error = error {
+                AppLogger.app.debug("Web server connection read error: \(error.localizedDescription)")
+                connection.cancel()
+                return
+            }
+
+            guard let data = data, let requestString = String(data: data, encoding: .utf8) else {
+                self.sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "text/plain", body: "Invalid HTTP request")
+                return
+            }
+
+            self.processHTTPRequest(requestString: requestString, rawData: data, connection: connection)
+        }
+    }
+
+    private struct ParsedRequest {
+        var method: String
+        var path: String
+        var headers: [String: String]
+        var body: String
+    }
+
+    private func parseRequest(requestString: String) -> ParsedRequest? {
+        let lines = requestString.components(separatedBy: "\r\n")
+        guard let firstLine = lines.first, !firstLine.isEmpty else { return nil }
+
+        let requestParts = firstLine.components(separatedBy: " ")
+        guard requestParts.count >= 2 else { return nil }
+
+        let method = requestParts[0].uppercased()
+        let path = requestParts[1]
+
+        var headers: [String: String] = [:]
+        var bodyStartIndex = lines.count
+
+        for (idx, line) in lines.enumerated() {
+            if idx == 0 { continue }
+            if line.isEmpty {
+                bodyStartIndex = idx + 1
+                break
+            }
+            if let colonIndex = line.firstIndex(of: ":") {
+                let key = String(line[..<colonIndex]).trimmingCharacters(in: .whitespaces).lowercased()
+                let value = String(line[line.index(after: colonIndex)...]).trimmingCharacters(in: .whitespaces)
+                headers[key] = value
+            }
+        }
+
+        let body = bodyStartIndex < lines.count ? lines[bodyStartIndex...].joined(separator: "\r\n") : ""
+        return ParsedRequest(method: method, path: path, headers: headers, body: body)
+    }
+
+    private func checkAuthentication(request: ParsedRequest) -> Bool {
+        let expectedPassword = settings.webServerPassword
+        if expectedPassword.isEmpty {
+            return true
+        }
+
+        // Check query param e.g. /?password=xyz or /api/status?password=xyz
+        if let queryStart = request.path.firstIndex(of: "?") {
+            let queryString = String(request.path[request.path.index(after: queryStart)...])
+            for pair in queryString.components(separatedBy: "&") {
+                let kv = pair.components(separatedBy: "=")
+                if kv.count == 2, (kv[0] == "password" || kv[0] == "auth"), kv[1] == expectedPassword {
+                    return true
+                }
+            }
+        }
+
+        // Check Authorization: Basic base64(user:password)
+        if let authHeader = request.headers["authorization"], authHeader.lowercased().hasPrefix("basic ") {
+            let base64Token = String(authHeader.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+            if let decodedData = Data(base64Encoded: base64Token),
+               let credentials = String(data: decodedData, encoding: .utf8) {
+                let parts = credentials.components(separatedBy: ":")
+                if parts.count >= 2 && parts[1] == expectedPassword {
+                    return true
+                } else if parts.count == 1 && parts[0] == expectedPassword {
+                    return true
+                }
+            }
+        }
+
+        // Check custom header
+        if let token = request.headers["x-auth-password"], token == expectedPassword {
+            return true
+        }
+
+        return false
+    }
+
+    private func processHTTPRequest(requestString: String, rawData: Data, connection: NWConnection) {
+        guard let request = parseRequest(requestString: requestString) else {
+            sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "text/plain", body: "Malformed HTTP request")
+            return
+        }
+
+        // Clean path without query parameters
+        let rawPath = request.path
+        let cleanPath = rawPath.components(separatedBy: "?").first ?? "/"
+
+        // Authenticate request
+        if !checkAuthentication(request: request) {
+            let authHeaders = ["WWW-Authenticate": "Basic realm=\"UltraKiosk Remote Admin\""]
+            let body = """
+            <!DOCTYPE html>
+            <html>
+            <head><meta charset="utf-8"><title>Unauthorized</title></head>
+            <body style="font-family:sans-serif;text-align:center;padding:50px;background:#1a1a1a;color:#fff;">
+                <h2>Authentication Required</h2>
+                <p>Please enter the password configured in UltraKiosk settings.</p>
+            </body>
+            </html>
+            """
+            sendResponse(connection: connection, statusCode: 401, statusText: "Unauthorized", contentType: "text/html", headers: authHeaders, body: body)
+            return
+        }
+
+        switch (request.method, cleanPath) {
+        case ("GET", "/"), ("GET", "/index.html"):
+            let html = generateDashboardHTML()
+            sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "text/html; charset=utf-8", body: html)
+
+        case ("GET", "/api/status"):
+            let json = generateStatusJSON()
+            sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: json)
+
+        case ("POST", "/api/settings"):
+            handleSaveSettings(request: request, connection: connection)
+
+        case ("POST", "/api/action"):
+            handleAction(request: request, connection: connection)
+
+        default:
+            sendResponse(connection: connection, statusCode: 404, statusText: "Not Found", contentType: "text/plain", body: "Endpoint not found")
+        }
+    }
+
+    private func handleAction(request: ParsedRequest, connection: NWConnection) {
+        guard let data = request.body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let action = json["action"] as? String else {
+            sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "application/json", body: "{\"error\":\"Invalid action request\"}")
+            return
+        }
+
+        DispatchQueue.main.async {
+            switch action {
+            case "screensaver":
+                NotificationCenter.default.post(name: .mqttScreensaverActivated, object: nil)
+            case "wakeup":
+                NotificationCenter.default.post(name: Notification.Name("UltraKiosk.remoteWakeup"), object: nil)
+            case "reload":
+                NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
+            default:
+                break
+            }
+        }
+
+        sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"action\":\"\(action)\"}")
+    }
+
+    private func handleSaveSettings(request: ParsedRequest, connection: NWConnection) {
+        var dict: [String: Any] = [:]
+
+        if let data = request.body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            dict = json
+        } else {
+            // Form URL-encoded fallback
+            for item in request.body.components(separatedBy: "&") {
+                let kv = item.components(separatedBy: "=")
+                if kv.count == 2 {
+                    let key = kv[0].removingPercentEncoding ?? kv[0]
+                    let value = kv[1].replacingOccurrences(of: "+", with: " ").removingPercentEncoding ?? kv[1]
+                    dict[key] = value
+                }
+            }
+        }
+
+        DispatchQueue.main.async {
+            self.applySettingsDictionary(dict)
+            self.settings.saveSettings()
+        }
+
+        sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"message\":\"Settings saved successfully\"}")
+    }
+
+    private func applySettingsDictionary(_ dict: [String: Any]) {
+        if let mode = dict["screensaverMode"] as? String { settings.screensaverMode = mode }
+        if let timeout = dict["screensaverTimeout"] {
+            if let d = timeout as? Double { settings.screensaverTimeout = d }
+            else if let s = timeout as? String, let d = Double(s) { settings.screensaverTimeout = d }
+        }
+        if let dim = dict["screenBrightnessDimmed"] {
+            if let d = dim as? Double { settings.screenBrightnessDimmed = d }
+            else if let s = dim as? String, let d = Double(s) { settings.screenBrightnessDimmed = d }
+        }
+        if let norm = dict["screenBrightnessNormal"] {
+            if let d = norm as? Double { settings.screenBrightnessNormal = d }
+            else if let s = norm as? String, let d = Double(s) { settings.screenBrightnessNormal = d }
+        }
+        if let method = dict["wakeupMethod"] as? String { settings.wakeupMethod = method }
+        if let sens = dict["motionSensitivity"] {
+            if let d = sens as? Double { settings.motionSensitivity = d }
+            else if let s = sens as? String, let d = Double(s) { settings.motionSensitivity = d }
+        }
+        if let interval = dict["faceDetectionInterval"] {
+            if let d = interval as? Double { settings.faceDetectionInterval = d }
+            else if let s = interval as? String, let d = Double(s) { settings.faceDetectionInterval = d }
+        }
+        if let dbg = dict["showDebugInfo"] {
+            if let b = dbg as? Bool { settings.showDebugInfo = b }
+            else if let s = dbg as? String { settings.showDebugInfo = (s == "true" || s == "1" || s == "on") }
+        }
+        if let ref = dict["enableAutoRefresh"] {
+            if let b = ref as? Bool { settings.enableAutoRefresh = b }
+            else if let s = ref as? String { settings.enableAutoRefresh = (s == "true" || s == "1" || s == "on") }
+        }
+        if let refInt = dict["autoRefreshInterval"] {
+            if let d = refInt as? Double { settings.autoRefreshInterval = d }
+            else if let s = refInt as? String, let d = Double(s) { settings.autoRefreshInterval = d }
+        }
+        if let urls = dict["slideshowURLs"] as? [String] {
+            settings.slideshowURLs = urls
+        } else if let urlsString = dict["slideshowURLs"] as? String {
+            settings.slideshowURLs = urlsString.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        }
+        if let slideInt = dict["slideshowInterval"] {
+            if let d = slideInt as? Double { settings.slideshowInterval = d }
+            else if let s = slideInt as? String, let d = Double(s) { settings.slideshowInterval = d }
+        }
+        if let va = dict["enableVoiceActivation"] {
+            if let b = va as? Bool { settings.enableVoiceActivation = b }
+            else if let s = va as? String { settings.enableVoiceActivation = (s == "true" || s == "1" || s == "on") }
+        }
+        if let sr = dict["voiceSampleRate"] {
+            if let i = sr as? Int { settings.voiceSampleRate = i }
+            else if let s = sr as? String, let i = Int(s) { settings.voiceSampleRate = i }
+        }
+        if let vt = dict["voiceTimeout"] {
+            if let i = vt as? Int { settings.voiceTimeout = i }
+            else if let s = vt as? String, let i = Int(s) { settings.voiceTimeout = i }
+        }
+        if let pass = dict["webServerPassword"] as? String {
+            settings.webServerPassword = pass
+        }
+        if let port = dict["webServerPort"] {
+            if let i = port as? Int { settings.webServerPort = i }
+            else if let s = port as? String, let i = Int(s) { settings.webServerPort = i }
+        }
+    }
+
+    private func sendResponse(connection: NWConnection, statusCode: Int, statusText: String, contentType: String, headers: [String: String] = [:], body: String) {
+        let bodyData = body.data(using: .utf8) ?? Data()
+        var headerLines = [
+            "HTTP/1.1 \(statusCode) \(statusText)",
+            "Content-Type: \(contentType)",
+            "Content-Length: \(bodyData.count)",
+            "Connection: close",
+            "Access-Control-Allow-Origin: *"
+        ]
+        for (k, v) in headers {
+            headerLines.append("\(k): \(v)")
+        }
+        let headerString = headerLines.joined(separator: "\r\n") + "\r\n\r\n"
+        var fullData = headerString.data(using: .utf8) ?? Data()
+        fullData.append(bodyData)
+
+        connection.send(content: fullData, completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+
+    // MARK: - HTML Dashboard Generation
+
+    private func generateStatusJSON() -> String {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let batteryLevel = UIDevice.current.batteryLevel >= 0 ? Int(UIDevice.current.batteryLevel * 100) : -1
+        let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+
+        var dict: [String: Any] = settings.exportSettings()
+        dict["battery_percent"] = batteryLevel
+        dict["is_charging"] = isCharging
+        dict["device_name"] = UIDevice.current.name
+        dict["device_model"] = UIDevice.current.model
+        dict["system_version"] = UIDevice.current.systemVersion
+
+        if let data = try? JSONSerialization.data(withJSONObject: dict, options: .prettyPrinted),
+           let str = String(data: data, encoding: .utf8) {
+            return str
+        }
+        return "{}"
+    }
+
+    private func generateDashboardHTML() -> String {
+        UIDevice.current.isBatteryMonitoringEnabled = true
+        let battery = UIDevice.current.batteryLevel >= 0 ? "\(Int(UIDevice.current.batteryLevel * 100))%" : "Unknown"
+        let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full ? "Charging ⚡" : "Discharging"
+        let urlsText = settings.slideshowURLs.joined(separator: "\n")
+
+        return """
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>UltraKiosk Remote Admin</title>
+            <style>
+                :root {
+                    --bg: #121418;
+                    --card: #1c2027;
+                    --border: #2e3542;
+                    --text: #e6edf3;
+                    --subtext: #8b949e;
+                    --primary: #388bfd;
+                    --primary-hover: #1f6feb;
+                    --success: #238636;
+                    --danger: #da3633;
+                }
+                * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+                body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
+                .container { max-width: 800px; margin: 0 auto; }
+                header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+                h1 { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+                .badge { background: #238636; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; font-weight: bold; }
+                .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+                .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+                .card-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--subtext); margin-bottom: 8px; font-weight: 600; }
+                .card-value { font-size: 20px; font-weight: bold; color: var(--text); }
+                .actions { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+                button { background: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
+                button:hover { background: var(--primary-hover); }
+                button.secondary { background: #2d333b; border: 1px solid var(--border); }
+                button.secondary:hover { background: #373e47; }
+                button.success { background: var(--success); }
+                section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+                section h2 { font-size: 17px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+                .form-group { margin-bottom: 16px; }
+                label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+                .hint { font-size: 12px; color: var(--subtext); margin-top: 4px; }
+                input[type="text"], input[type="number"], input[type="password"], select, textarea {
+                    width: 100%; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 14px;
+                }
+                input[type="range"] { width: 100%; accent-color: var(--primary); }
+                .checkbox-group { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+                .checkbox-group input { width: 16px; height: 16px; }
+                textarea { resize: vertical; min-height: 80px; font-family: monospace; }
+                #toast { display: none; position: fixed; bottom: 20px; right: 20px; background: #238636; color: #fff; padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-weight: 600; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <header>
+                    <h1>UltraKiosk <span class="badge">Online</span></h1>
+                    <div style="font-size: 13px; color: var(--subtext);">\(UIDevice.current.name)</div>
+                </header>
+
+                <div class="grid">
+                    <div class="card">
+                        <div class="card-title">Battery</div>
+                        <div class="card-value">\(battery) <span style="font-size: 13px; font-weight: normal; color: var(--subtext);">(\(isCharging))</span></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Screensaver Mode</div>
+                        <div class="card-value" style="text-transform: capitalize;">\(settings.screensaverMode)</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Active URLs</div>
+                        <div class="card-value">\(settings.effectiveURLs.count) configured</div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="secondary" onclick="sendAction('screensaver')">🌙 Trigger Screensaver</button>
+                    <button class="secondary" onclick="sendAction('wakeup')">☀️ Wake Screen</button>
+                    <button class="secondary" onclick="sendAction('reload')">🔄 Reload Browser</button>
+                </div>
+
+                <form id="settingsForm" onsubmit="saveSettings(event)">
+                    <section>
+                        <h2>Screensaver & Brightness</h2>
+                        <div class="form-group">
+                            <label>Screensaver Option</label>
+                            <select name="screensaverMode">
+                                <option value="clock" \(settings.screensaverMode == "clock" ? "selected" : "")>Clock & Sensors (Black screen with time & face/motion wake)</option>
+                                <option value="dimming" \(settings.screensaverMode == "dimming" ? "selected" : "")>Dimming Only (Dims screen, tap/sensor restores brightness)</option>
+                                <option value="urls" \(settings.screensaverMode == "urls" ? "selected" : "")>URLs Slideshow (Smoothly cycles URLs during screensaver)</option>
+                                <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming, no camera)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Inactivity Timeout (seconds)</label>
+                            <input type="number" name="screensaverTimeout" value="\(Int(settings.screensaverTimeout))" min="10" max="3600">
+                        </div>
+                        <div class="form-group">
+                            <label>Screen Brightness - Normal (Current: \(Int(settings.screenBrightnessNormal * 100))%)</label>
+                            <input type="range" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.05" value="\(settings.screenBrightnessNormal)">
+                        </div>
+                        <div class="form-group">
+                            <label>Screen Brightness - Dimmed (Current: \(Int(settings.screenBrightnessDimmed * 100))%)</label>
+                            <input type="range" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.05" value="\(settings.screenBrightnessDimmed)">
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2>Wakeup & Camera</h2>
+                        <div class="form-group">
+                            <label>Wakeup Method</label>
+                            <select name="wakeupMethod">
+                                <option value="face" \(settings.wakeupMethod == "face" ? "selected" : "")>Face Detection (Vision)</option>
+                                <option value="motion" \(settings.wakeupMethod == "motion" ? "selected" : "")>Motion Detection (Camera Sensor)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Motion Sensitivity (\(Int(settings.motionSensitivity * 100))% threshold)</label>
+                            <input type="range" name="motionSensitivity" min="0.02" max="0.25" step="0.01" value="\(settings.motionSensitivity)">
+                            <div class="hint">Lower threshold = more sensitive; higher = requires larger motion.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Face Detection Interval (seconds)</label>
+                            <input type="number" step="0.1" name="faceDetectionInterval" value="\(settings.faceDetectionInterval)" min="0.1" max="5.0">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="showDebugInfo" \(settings.showDebugInfo ? "checked" : "")>
+                                <span>Show camera debug info on screensaver</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2>Kiosk & Browser URLs</h2>
+                        <div class="form-group">
+                            <label>Slideshow / Kiosk URLs (one per line)</label>
+                            <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
+                            <div class="hint">First URL is your primary dashboard. Additional URLs cycle in slideshow or URL screensaver mode.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Slide Cycle Interval (seconds)</label>
+                            <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="enableAutoRefresh" \(settings.enableAutoRefresh ? "checked" : "")>
+                                <span>Auto refresh page</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Auto Refresh Interval (seconds)</label>
+                            <input type="number" name="autoRefreshInterval" value="\(Int(settings.autoRefreshInterval))" min="10" max="3600">
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2>Remote Web Server & Password</h2>
+                        <div class="form-group">
+                            <label>Web Server Port</label>
+                            <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
+                        </div>
+                        <div class="form-group">
+                            <label>Web Server Password (leave blank for no password)</label>
+                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)">
+                        </div>
+                    </section>
+
+                    <div style="text-align: right; margin-top: 24px;">
+                        <button type="submit" class="success" style="font-size: 16px; padding: 12px 28px;">💾 Save Settings</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="toast">Settings Saved!</div>
+
+            <script>
+                function showToast(msg) {
+                    const t = document.getElementById('toast');
+                    t.innerText = msg;
+                    t.style.display = 'block';
+                    setTimeout(() => { t.style.display = 'none'; }, 3000);
+                }
+
+                async function sendAction(actionName) {
+                    try {
+                        const res = await fetch('/api/action', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: actionName })
+                        });
+                        if (res.ok) showToast('Action sent: ' + actionName);
+                    } catch (e) {
+                        alert('Error sending action: ' + e);
+                    }
+                }
+
+                async function saveSettings(e) {
+                    e.preventDefault();
+                    const form = document.getElementById('settingsForm');
+                    const fd = new FormData(form);
+                    const payload = {};
+                    fd.forEach((val, key) => { payload[key] = val; });
+                    payload['showDebugInfo'] = form.querySelector('[name=showDebugInfo]').checked;
+                    payload['enableAutoRefresh'] = form.querySelector('[name=enableAutoRefresh]').checked;
+
+                    try {
+                        const res = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (res.ok) {
+                            showToast('Settings saved successfully!');
+                        } else {
+                            alert('Save failed: ' + res.statusText);
+                        }
+                    } catch (err) {
+                        alert('Failed to save settings: ' + err);
+                    }
+                }
+            </script>
+        </body>
+        </html>
+        """
+    }
+
+    // MARK: - Local IP Helper
+    private func getWiFiAddress() -> String? {
+        var address: String?
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
+        for ptr in sequence(first: firstAddr, by: { $0.pointee.ifa_next }) {
+            let flags = Int32(ptr.pointee.ifa_flags)
+            let addr = ptr.pointee.ifa_addr.pointee
+            if (flags & (IFF_UP|IFF_RUNNING|IFF_LOOPBACK)) == (IFF_UP|IFF_RUNNING) {
+                if addr.sa_family == UInt8(AF_INET) {
+                    let name = String(cString: ptr.pointee.ifa_name)
+                    if name == "en0" { // standard iOS Wi-Fi interface
+                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                        if getnameinfo(ptr.pointee.ifa_addr, socklen_t(addr.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
+                            address = String(cString: hostname)
+                        }
+                    }
+                }
+            }
+        }
+        freeifaddrs(ifaddr)
+        return address
+    }
+}

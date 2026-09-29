@@ -190,8 +190,10 @@ class MQTTManager: ObservableObject {
         // Battery Sensor Discovery
         publishBatterySensorDiscovery()
 
-        // Screensaver Button Discovery
+        // Button Discoveries
         publishScreensaverButtonDiscovery()
+        publishWakeupButtonDiscovery()
+        publishReloadButtonDiscovery()
 
         // Status Binary Sensor Discovery
         publishStatusSensorDiscovery()
@@ -235,6 +237,36 @@ class MQTTManager: ObservableObject {
                 "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/screensaver/set",
             "device": deviceInfo,
             "icon": "mdi:monitor-off",
+        ]
+
+        publishJSON(topic: topic, payload: config, retain: true)
+    }
+
+    private func publishWakeupButtonDiscovery() {
+        let topic = "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/wakeup/config"
+
+        let config: [String: Any] = [
+            "name": "Wake Screen",
+            "unique_id": "\(deviceSerializedId)_wakeup_button",
+            "command_topic":
+                "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/wakeup/set",
+            "device": deviceInfo,
+            "icon": "mdi:monitor-eye",
+        ]
+
+        publishJSON(topic: topic, payload: config, retain: true)
+    }
+
+    private func publishReloadButtonDiscovery() {
+        let topic = "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/reload/config"
+
+        let config: [String: Any] = [
+            "name": "Reload Browser",
+            "unique_id": "\(deviceSerializedId)_reload_button",
+            "command_topic":
+                "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/reload/set",
+            "device": deviceInfo,
+            "icon": "mdi:refresh",
         ]
 
         publishJSON(topic: topic, payload: config, retain: true)
@@ -365,7 +397,17 @@ class MQTTManager: ObservableObject {
             "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/screensaver/set"
         client.subscribe(screensaverTopic, qos: .qos1)
 
-        AppLogger.mqtt.info("Subscribed to \(screensaverTopic)")
+        // Subscribe to wakeup button
+        let wakeupTopic =
+            "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/wakeup/set"
+        client.subscribe(wakeupTopic, qos: .qos1)
+
+        // Subscribe to reload button
+        let reloadTopic =
+            "\(settings.mqttTopicPrefix)/button/\(deviceSerializedId)/reload/set"
+        client.subscribe(reloadTopic, qos: .qos1)
+
+        AppLogger.mqtt.info("Subscribed to button commands")
 
         // Subscribe to settings command topics
         subscribeToSettingsCommands()
@@ -377,10 +419,20 @@ class MQTTManager: ObservableObject {
 
         AppLogger.mqtt.info("Received message on \(topic): \(payload)")
 
-        // Handle screensaver button
+        // Handle buttons
         if topic.contains("/screensaver/set") {
             DispatchQueue.main.async {
                 NotificationCenter.default.post(name: .mqttScreensaverActivated, object: nil)
+            }
+        }
+        if topic.contains("/wakeup/set") {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: Notification.Name("UltraKiosk.remoteWakeup"), object: nil)
+            }
+        }
+        if topic.contains("/reload/set") {
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
             }
         }
 
@@ -562,17 +614,71 @@ extension MQTTManager {
             min: 0.1, max: 5.0, step: 0.1, unit: "s", icon: "mdi:face-recognition"
         )
         publishNumberDiscovery(
+            key: "motionSensitivity",
+            name: "Motion Sensitivity",
+            min: 0.02, max: 0.25, step: 0.01, unit: nil, icon: "mdi:motion-sensor"
+        )
+        publishNumberDiscovery(
+            key: "slideshowInterval",
+            name: "Slideshow Interval",
+            min: 5, max: 600, step: 5, unit: "s", icon: "mdi:image-multiple"
+        )
+        publishNumberDiscovery(
+            key: "autoRefreshInterval",
+            name: "Auto Refresh Interval",
+            min: 10, max: 3600, step: 10, unit: "s", icon: "mdi:timer-refresh"
+        )
+        publishNumberDiscovery(
             key: "voiceTimeout",
             name: "Voice Timeout",
             min: 1, max: 60, step: 1, unit: "s", icon: "mdi:timer"
         )
+        publishNumberDiscovery(
+            key: "webServerPort",
+            name: "Web Server Port",
+            min: 1024, max: 65535, step: 1, unit: nil, icon: "mdi:network-outline"
+        )
 
-        // select entity for sample rate
+        // select entities
+        publishSelectDiscovery(
+            key: "screensaverMode",
+            name: "Screensaver Mode",
+            options: ["clock", "dimming", "urls", "off"],
+            icon: "mdi:monitor-dashboard"
+        )
+        publishSelectDiscovery(
+            key: "wakeupMethod",
+            name: "Wakeup Method",
+            options: ["face", "motion"],
+            icon: "mdi:camera-account"
+        )
         publishSelectDiscovery(
             key: "voiceSampleRate",
             name: "Voice Sample Rate",
             options: ["8000", "12000", "16000", "22050", "32000", "44100"],
             icon: "mdi:waveform"
+        )
+
+        // switch entities
+        publishSwitchDiscovery(
+            key: "showDebugInfo",
+            name: "Camera Debug Info",
+            icon: "mdi:bug"
+        )
+        publishSwitchDiscovery(
+            key: "enableAutoRefresh",
+            name: "Auto Refresh Page",
+            icon: "mdi:refresh-auto"
+        )
+        publishSwitchDiscovery(
+            key: "enableVoiceActivation",
+            name: "Voice Activation",
+            icon: "mdi:microphone"
+        )
+        publishSwitchDiscovery(
+            key: "enableWebServer",
+            name: "Remote Web Server",
+            icon: "mdi:web"
         )
     }
 
@@ -607,8 +713,7 @@ extension MQTTManager {
         publishJSON(topic: topics.config, payload: config, retain: true)
     }
 
-    private func publishSelectDiscovery(key: String, name: String, options: [String], icon: String?)
-    {
+    private func publishSelectDiscovery(key: String, name: String, options: [String], icon: String?) {
         let topics = componentTopics(component: "select", key: key)
         var config: [String: Any] = [
             "name": "\(name)",
@@ -617,6 +722,21 @@ extension MQTTManager {
             "state_topic": topics.state,
             "command_topic": topics.command,
             "options": options,
+        ]
+        if let icon = icon { config["icon"] = icon }
+        publishJSON(topic: topics.config, payload: config, retain: true)
+    }
+
+    private func publishSwitchDiscovery(key: String, name: String, icon: String?) {
+        let topics = componentTopics(component: "switch", key: key)
+        var config: [String: Any] = [
+            "name": "\(name)",
+            "unique_id": "\(deviceSerializedId)_\(key)",
+            "device": deviceInfo,
+            "state_topic": topics.state,
+            "command_topic": topics.command,
+            "payload_on": "ON",
+            "payload_off": "OFF",
         ]
         if let icon = icon { config["icon"] = icon }
         publishJSON(topic: topics.config, payload: config, retain: true)
@@ -631,32 +751,67 @@ extension MQTTManager {
             "screenBrightnessDimmed",
             "screenBrightnessNormal",
             "faceDetectionInterval",
+            "motionSensitivity",
+            "slideshowInterval",
+            "autoRefreshInterval",
             "voiceTimeout",
+            "webServerPort",
         ]
 
         for key in keysNumber {
             let topic = componentTopics(component: "number", key: key).command
             client.subscribe(topic, qos: .qos1)
-            AppLogger.mqtt.info("Subscribed to \(topic)")
         }
 
-        let sampleRateTopic = componentTopics(component: "select", key: "voiceSampleRate").command
-        client.subscribe(sampleRateTopic, qos: .qos1)
-        AppLogger.mqtt.info("Subscribed to \(sampleRateTopic)")
+        let keysSelect = [
+            "screensaverMode",
+            "wakeupMethod",
+            "voiceSampleRate",
+        ]
+
+        for key in keysSelect {
+            let topic = componentTopics(component: "select", key: key).command
+            client.subscribe(topic, qos: .qos1)
+        }
+
+        let keysSwitch = [
+            "showDebugInfo",
+            "enableAutoRefresh",
+            "enableVoiceActivation",
+            "enableWebServer",
+        ]
+
+        for key in keysSwitch {
+            let topic = componentTopics(component: "switch", key: key).command
+            client.subscribe(topic, qos: .qos1)
+        }
+
+        AppLogger.mqtt.info("Subscribed to all settings command topics")
     }
 
     private func publishAllSettingsStates() {
         // number states
-        publishNumberState(
-            key: "mqttBatteryUpdateInterval", value: settings.mqttBatteryUpdateInterval)
+        publishNumberState(key: "mqttBatteryUpdateInterval", value: settings.mqttBatteryUpdateInterval)
         publishNumberState(key: "screensaverTimeout", value: settings.screensaverTimeout)
         publishNumberState(key: "screenBrightnessDimmed", value: settings.screenBrightnessDimmed)
         publishNumberState(key: "screenBrightnessNormal", value: settings.screenBrightnessNormal)
         publishNumberState(key: "faceDetectionInterval", value: settings.faceDetectionInterval)
+        publishNumberState(key: "motionSensitivity", value: settings.motionSensitivity)
+        publishNumberState(key: "slideshowInterval", value: settings.slideshowInterval)
+        publishNumberState(key: "autoRefreshInterval", value: settings.autoRefreshInterval)
         publishNumberState(key: "voiceTimeout", value: Double(settings.voiceTimeout))
+        publishNumberState(key: "webServerPort", value: Double(settings.webServerPort))
 
-        // select state
+        // select states
+        publishSelectState(key: "screensaverMode", value: settings.screensaverMode)
+        publishSelectState(key: "wakeupMethod", value: settings.wakeupMethod)
         publishSelectState(key: "voiceSampleRate", value: String(settings.voiceSampleRate))
+
+        // switch states
+        publishSwitchState(key: "showDebugInfo", value: settings.showDebugInfo)
+        publishSwitchState(key: "enableAutoRefresh", value: settings.enableAutoRefresh)
+        publishSwitchState(key: "enableVoiceActivation", value: settings.enableVoiceActivation)
+        publishSwitchState(key: "enableWebServer", value: settings.enableWebServer)
     }
 
     /// Returns the canonical MQTT number payload string: integers without a decimal point,
@@ -677,6 +832,11 @@ extension MQTTManager {
     private func publishSelectState(key: String, value: String) {
         let topic = componentTopics(component: "select", key: key).state
         publish(topic: topic, payload: value, retain: true)
+    }
+
+    private func publishSwitchState(key: String, value: Bool) {
+        let topic = componentTopics(component: "switch", key: key).state
+        publish(topic: topic, payload: value ? "ON" : "OFF", retain: true)
     }
 
     private func handleSettingsCommand(topic: String, payload: String) {
@@ -713,19 +873,81 @@ extension MQTTManager {
             publishNumberState(key: "faceDetectionInterval", value: v)
             return
         }
+        if matches("number", "motionSensitivity"), let v = doublePayload {
+            settings.motionSensitivity = v
+            publishNumberState(key: "motionSensitivity", value: v)
+            return
+        }
+        if matches("number", "slideshowInterval"), let v = doublePayload {
+            settings.slideshowInterval = v
+            publishNumberState(key: "slideshowInterval", value: v)
+            return
+        }
+        if matches("number", "autoRefreshInterval"), let v = doublePayload {
+            settings.autoRefreshInterval = v
+            publishNumberState(key: "autoRefreshInterval", value: v)
+            return
+        }
         if matches("number", "voiceTimeout"), let v = Int(payload) {
             settings.voiceTimeout = v
             publishNumberState(key: "voiceTimeout", value: Double(v))
             return
         }
+        if matches("number", "webServerPort"), let v = Int(payload), v >= 1024, v <= 65535 {
+            settings.webServerPort = v
+            publishNumberState(key: "webServerPort", value: Double(v))
+            return
+        }
 
         // select handlers
+        if matches("select", "screensaverMode") {
+            let allowed = ["clock", "dimming", "urls", "off"]
+            if allowed.contains(payload.lowercased()) {
+                settings.screensaverMode = payload.lowercased()
+                publishSelectState(key: "screensaverMode", value: settings.screensaverMode)
+            }
+            return
+        }
+        if matches("select", "wakeupMethod") {
+            let allowed = ["face", "motion"]
+            if allowed.contains(payload.lowercased()) {
+                settings.wakeupMethod = payload.lowercased()
+                publishSelectState(key: "wakeupMethod", value: settings.wakeupMethod)
+            }
+            return
+        }
         if matches("select", "voiceSampleRate"), let v = Int(payload) {
             let allowed = [8000, 12000, 16000, 22050, 32000, 44100]
             if allowed.contains(v) {
                 settings.voiceSampleRate = v
                 publishSelectState(key: "voiceSampleRate", value: String(v))
             }
+            return
+        }
+
+        // switch handlers
+        if matches("switch", "showDebugInfo") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.showDebugInfo = isEnabled
+            publishSwitchState(key: "showDebugInfo", value: isEnabled)
+            return
+        }
+        if matches("switch", "enableAutoRefresh") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.enableAutoRefresh = isEnabled
+            publishSwitchState(key: "enableAutoRefresh", value: isEnabled)
+            return
+        }
+        if matches("switch", "enableVoiceActivation") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.enableVoiceActivation = isEnabled
+            publishSwitchState(key: "enableVoiceActivation", value: isEnabled)
+            return
+        }
+        if matches("switch", "enableWebServer") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.enableWebServer = isEnabled
+            publishSwitchState(key: "enableWebServer", value: isEnabled)
             return
         }
     }

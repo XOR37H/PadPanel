@@ -4,6 +4,7 @@ import CocoaMQTT
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var settings = SettingsManager.shared
+    @ObservedObject var webServer = WebServerManager.shared
     @Environment(\.presentationMode) var presentationMode
     @State private var showingValidationAlert = false
     @State private var validationIssues: [String] = []
@@ -17,6 +18,7 @@ struct SettingsView: View {
                 homeAssistantSection
                 mqttSection
                 screensaverSection
+                webServerSection
                 voiceSection
                 kioskSection
                 actionsSection
@@ -53,6 +55,9 @@ struct SettingsView: View {
             } message: {
                 Text("Do you want to reset all settings to the default values?")
             }
+        }
+        .onAppear {
+            UIScreen.main.brightness = CGFloat(settings.screenBrightnessNormal)
         }
     }
     
@@ -206,22 +211,54 @@ struct SettingsView: View {
         }
     }
     
+    private var screensaverModeDescription: String {
+        switch settings.screensaverMode {
+        case "clock":
+            return "Clock overlay with time, date, dimming, and face/motion sensor wakeup."
+        case "dimming":
+            return "Dimming only. Dims screen when inactive without overlay. Tap or sensors restore brightness."
+        case "urls":
+            return "Smoothly cycles through configured slideshow URLs while inactive. Tap returns to dashboard."
+        case "off":
+            return "Screensaver, dimming, and camera sensors are completely disabled."
+        default:
+            return ""
+        }
+    }
+    
     private var screensaverSection: some View {
         Section("Screensaver") {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Inactivity timeout: \(settings.screensaverTimeoutFormatted)")
-                Slider(value: $settings.screensaverTimeout, in: 10...1800, step: 10) {
-                    Text("Timeout")
-                } minimumValueLabel: {
-                    Text("10s")
-                } maximumValueLabel: {
-                    Text("30m")
+                Text("Screensaver option")
+                Picker("Screensaver option", selection: $settings.screensaverMode) {
+                    Text("Clock & Sensors").tag("clock")
+                    Text("Dimming Only").tag("dimming")
+                    Text("Cycle URLs").tag("urls")
+                    Text("Off").tag("off")
                 }
+                .pickerStyle(.segmented)
+                
+                Text(screensaverModeDescription)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Screen brightness (dimmed): \(Int(settings.screenBrightnessDimmed * 100))%")
-                Slider(value: $settings.screenBrightnessDimmed, in: 0.05...0.8, step: 0.05)
+            if settings.screensaverMode != "off" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Inactivity timeout: \(settings.screensaverTimeoutFormatted)")
+                    Slider(value: $settings.screensaverTimeout, in: 10...1800, step: 10) {
+                        Text("Timeout")
+                    } minimumValueLabel: {
+                        Text("10s")
+                    } maximumValueLabel: {
+                        Text("30m")
+                    }
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Screen brightness (dimmed): \(Int(settings.screenBrightnessDimmed * 100))%")
+                    Slider(value: $settings.screenBrightnessDimmed, in: 0.05...0.8, step: 0.05)
+                }
             }
             
             VStack(alignment: .leading, spacing: 8) {
@@ -229,40 +266,83 @@ struct SettingsView: View {
                 Slider(value: $settings.screenBrightnessNormal, in: 0.3...1.0, step: 0.05)
             }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Wakeup method")
-                Picker("Wakeup method", selection: $settings.wakeupMethod) {
-                    Text("Face Detection").tag("face")
-                    Text("Motion Detection").tag("motion")
+            if settings.screensaverMode != "off" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Wakeup method")
+                    Picker("Wakeup method", selection: $settings.wakeupMethod) {
+                        Text("Face Detection").tag("face")
+                        Text("Motion Detection").tag("motion")
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
-            }
 
-            if settings.wakeupMethod == "motion" {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(String(format: "Motion sensitivity: %.0f%% change", settings.motionSensitivity * 100))
-                    Slider(value: $settings.motionSensitivity, in: 0.02...0.25, step: 0.01) {
-                        Text("Motion Sensitivity")
-                    } minimumValueLabel: {
-                        Text("High (2%)")
-                    } maximumValueLabel: {
-                        Text("Low (25%)")
+                if settings.wakeupMethod == "motion" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(String(format: "Motion sensitivity: %.0f%% change", settings.motionSensitivity * 100))
+                        Slider(value: $settings.motionSensitivity, in: 0.02...0.25, step: 0.01) {
+                            Text("Motion Sensitivity")
+                        } minimumValueLabel: {
+                            Text("High (2%)")
+                        } maximumValueLabel: {
+                            Text("Low (25%)")
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(String(format: "Face detection interval: %.1fs", settings.faceDetectionInterval))
+                        Slider(value: $settings.faceDetectionInterval, in: 0.1...5.0, step: 0.1) {
+                            Text("Interval")
+                        } minimumValueLabel: {
+                            Text("0.1s")
+                        } maximumValueLabel: {
+                            Text("5s")
+                        }
                     }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(String(format: "Face detection interval: %.1fs", settings.faceDetectionInterval))
-                    Slider(value: $settings.faceDetectionInterval, in: 0.1...5.0, step: 0.1) {
-                        Text("Interval")
-                    } minimumValueLabel: {
-                        Text("0.1s")
-                    } maximumValueLabel: {
-                        Text("5s")
-                    }
-                }
+                
+                Toggle("Show camera debug info", isOn: $settings.showDebugInfo)
             }
+        }
+    }
+    
+    private var webServerSection: some View {
+        Section("Remote Web UI") {
+            Toggle("Enable Remote Web UI", isOn: $settings.enableWebServer)
             
-            Toggle("Show camera debug info", isOn: $settings.showDebugInfo)
+            if settings.enableWebServer {
+                if !webServer.serverURL.isEmpty {
+                    HStack {
+                        Text("Address")
+                        Spacer()
+                        Text(webServer.serverURL)
+                            .font(.system(.body, design: .monospaced))
+                            .foregroundColor(.blue)
+                    }
+                } else if let error = webServer.lastError {
+                    Text("Error: \(error)")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+                
+                HStack {
+                    Text("Port")
+                    Spacer()
+                    TextField("8080", value: $settings.webServerPort, formatter: NumberFormatter())
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.numberPad)
+                        .frame(maxWidth: 100)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Password (optional)")
+                    SecureField("No password set", text: $settings.webServerPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+                
+                Text("Access this URL from any computer, phone, or browser on your local network to manage all settings and actions remotely.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
     }
     

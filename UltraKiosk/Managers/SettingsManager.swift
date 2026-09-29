@@ -32,6 +32,7 @@ class SettingsManager: ObservableObject {
     
     @Published var enableVoiceActivation: Bool = true
     @Published var kioskURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+    @Published var screensaverMode: String = "clock" // "clock", "dimming", "urls", "off"
     @Published var faceDetectionInterval: Double = 1.0 // seconds between detections
     @Published var wakeupMethod: String = "face" // "face" or "motion"
     @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
@@ -40,6 +41,11 @@ class SettingsManager: ObservableObject {
     @Published var autoRefreshInterval: Double = 300.0 // seconds, default 5m
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
+    
+    // Remote Web Server settings
+    @Published var enableWebServer: Bool = true
+    @Published var webServerPort: Int = 8080
+    @Published var webServerPassword: String = ""
     
     // Voice pipeline settings
     @Published var voiceSampleRate: Int = 16000
@@ -64,6 +70,7 @@ class SettingsManager: ObservableObject {
         static let enableMQTT = "enableMQTT"
         static let mqttBatteryUpdateInterval = "mqttBatteryUpdateInterval"
         static let screensaverTimeout = "screensaverTimeout"
+        static let screensaverMode = "screensaverMode"
         static let screenBrightnessDimmed = "screenBrightnessDimmed"
         static let screenBrightnessNormal = "screenBrightnessNormal"
         static let enableVoiceActivation = "enableVoiceActivation"
@@ -74,6 +81,9 @@ class SettingsManager: ObservableObject {
         static let showDebugInfo = "showDebugInfo"
         static let enableAutoRefresh = "enableAutoRefresh"
         static let autoRefreshInterval = "autoRefreshInterval"
+        static let enableWebServer = "enableWebServer"
+        static let webServerPort = "webServerPort"
+        static let webServerPassword = "webServerPassword"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -185,6 +195,12 @@ class SettingsManager: ObservableObject {
             screensaverTimeout = 60.0
         }
         
+        if let mode = defaults.string(forKey: Keys.screensaverMode) {
+            screensaverMode = mode
+        } else {
+            screensaverMode = "clock"
+        }
+        
         if let brightness = defaults.object(forKey: Keys.screenBrightnessDimmed) as? Double {
             screenBrightnessDimmed = brightness
         } else {
@@ -236,6 +252,20 @@ class SettingsManager: ObservableObject {
         } else {
             autoRefreshInterval = 300.0
         }
+        
+        if defaults.object(forKey: Keys.enableWebServer) != nil {
+            enableWebServer = defaults.bool(forKey: Keys.enableWebServer)
+        } else {
+            enableWebServer = true
+        }
+        
+        if let port = defaults.object(forKey: Keys.webServerPort) as? Int, port >= 1024, port <= 65535 {
+            webServerPort = port
+        } else {
+            webServerPort = 8080
+        }
+        
+        webServerPassword = defaults.string(forKey: Keys.webServerPassword) ?? ""
         
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
@@ -305,6 +335,7 @@ class SettingsManager: ObservableObject {
         defaults.set(mqttBatteryUpdateInterval, forKey: Keys.mqttBatteryUpdateInterval)
         
         defaults.set(screensaverTimeout, forKey: Keys.screensaverTimeout)
+        defaults.set(screensaverMode, forKey: Keys.screensaverMode)
         defaults.set(screenBrightnessDimmed, forKey: Keys.screenBrightnessDimmed)
         defaults.set(screenBrightnessNormal, forKey: Keys.screenBrightnessNormal)
         defaults.set(enableVoiceActivation, forKey: Keys.enableVoiceActivation)
@@ -315,6 +346,9 @@ class SettingsManager: ObservableObject {
         defaults.set(showDebugInfo, forKey: Keys.showDebugInfo)
         defaults.set(enableAutoRefresh, forKey: Keys.enableAutoRefresh)
         defaults.set(autoRefreshInterval, forKey: Keys.autoRefreshInterval)
+        defaults.set(enableWebServer, forKey: Keys.enableWebServer)
+        defaults.set(webServerPort, forKey: Keys.webServerPort)
+        defaults.set(webServerPassword, forKey: Keys.webServerPassword)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)
@@ -393,6 +427,7 @@ class SettingsManager: ObservableObject {
             "enableMQTT": enableMQTT,
             "mqttBatteryUpdateInterval": mqttBatteryUpdateInterval,
             "screensaverTimeout": screensaverTimeout,
+            "screensaverMode": screensaverMode,
             "screenBrightnessDimmed": screenBrightnessDimmed,
             "screenBrightnessNormal": screenBrightnessNormal,
             "enableVoiceActivation": enableVoiceActivation,
@@ -403,6 +438,9 @@ class SettingsManager: ObservableObject {
             "showDebugInfo": showDebugInfo,
             "enableAutoRefresh": enableAutoRefresh,
             "autoRefreshInterval": autoRefreshInterval,
+            "enableWebServer": enableWebServer,
+            "webServerPort": webServerPort,
+            "webServerPassword": webServerPassword,
             "voiceSampleRate": voiceSampleRate,
             "voiceTimeout": voiceTimeout,
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
@@ -428,6 +466,7 @@ class SettingsManager: ObservableObject {
         mqttBatteryUpdateInterval = settings["mqttBatteryUpdateInterval"] as? Double ?? mqttBatteryUpdateInterval
         
         screensaverTimeout = settings["screensaverTimeout"] as? Double ?? screensaverTimeout
+        screensaverMode = settings["screensaverMode"] as? String ?? screensaverMode
         screenBrightnessDimmed = settings["screenBrightnessDimmed"] as? Double ?? screenBrightnessDimmed
         screenBrightnessNormal = settings["screenBrightnessNormal"] as? Double ?? screenBrightnessNormal
         enableVoiceActivation = settings["enableVoiceActivation"] as? Bool ?? enableVoiceActivation
@@ -438,6 +477,9 @@ class SettingsManager: ObservableObject {
         if let dbg = settings["showDebugInfo"] as? Bool { showDebugInfo = dbg }
         if let ref = settings["enableAutoRefresh"] as? Bool { enableAutoRefresh = ref }
         if let refInt = settings["autoRefreshInterval"] as? Double { autoRefreshInterval = refInt }
+        if let ws = settings["enableWebServer"] as? Bool { enableWebServer = ws }
+        if let port = settings["webServerPort"] as? Int { webServerPort = port }
+        webServerPassword = settings["webServerPassword"] as? String ?? webServerPassword
 
         homeAssistantConversationId = settings["homeAssistantConversationId"] as? String ?? homeAssistantConversationId
         homeAssistantConversationAgent = settings["homeAssistantConversationAgent"] as? String ?? homeAssistantConversationAgent
@@ -467,6 +509,7 @@ class SettingsManager: ObservableObject {
         mqttBatteryUpdateInterval = 60.0
         
         screensaverTimeout = 60.0
+        screensaverMode = "clock"
         screenBrightnessDimmed = 0.2
         screenBrightnessNormal = 0.7
         enableVoiceActivation = false
@@ -477,6 +520,9 @@ class SettingsManager: ObservableObject {
         showDebugInfo = true
         enableAutoRefresh = false
         autoRefreshInterval = 300.0
+        enableWebServer = true
+        webServerPort = 8080
+        webServerPassword = ""
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

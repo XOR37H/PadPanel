@@ -63,6 +63,22 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(sut.wakeupMethod, "face")
     }
 
+    func testDefaultValues_screensaverMode_isClock() {
+        XCTAssertEqual(sut.screensaverMode, "clock")
+    }
+
+    func testDefaultValues_enableWebServer_isTrue() {
+        XCTAssertTrue(sut.enableWebServer)
+    }
+
+    func testDefaultValues_webServerPort_is8080() {
+        XCTAssertEqual(sut.webServerPort, 8080)
+    }
+
+    func testDefaultValues_webServerPassword_isEmpty() {
+        XCTAssertEqual(sut.webServerPassword, "")
+    }
+
     func testDefaultValues_enableAutoRefresh_isFalse() {
         XCTAssertFalse(sut.enableAutoRefresh)
     }
@@ -419,6 +435,10 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertNotNil(exported["slideshowInterval"])
         XCTAssertNotNil(exported["enableAutoRefresh"])
         XCTAssertNotNil(exported["autoRefreshInterval"])
+        XCTAssertNotNil(exported["screensaverMode"])
+        XCTAssertNotNil(exported["enableWebServer"])
+        XCTAssertNotNil(exported["webServerPort"])
+        XCTAssertNotNil(exported["webServerPassword"])
     }
 
     // MARK: - settingsChanged Notification

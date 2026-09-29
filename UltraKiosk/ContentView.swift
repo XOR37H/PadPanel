@@ -11,6 +11,7 @@ struct ContentView: View {
     @StateObject private var settings = SettingsManager.shared
     @StateObject private var brightnessManager = BrightnessManager()
     @StateObject private var slideshowManager = SlideshowManager()
+    @StateObject private var webServerManager = WebServerManager.shared
 
     @State private var showingSettings = false
 
@@ -27,7 +28,7 @@ struct ContentView: View {
                 KioskWebView(url: urlOrNil)
                     .environmentObject(kioskManager)
                     .opacity(webViewOpacity(for: index))
-                    .animation(.easeInOut(duration: 0.5), value: slideshowManager.currentIndex)
+                    .animation(.easeInOut(duration: 0.8), value: slideshowManager.currentIndex)
                     .animation(.easeInOut(duration: 0.5), value: kioskManager.isScreensaverActive)
                     .allowsHitTesting(
                         index == slideshowManager.currentIndex &&
@@ -35,8 +36,18 @@ struct ContentView: View {
                     )
             }
 
-            // Screensaver overlay
-            if kioskManager.isScreensaverActive {
+            // Dimming or URLs screensaver mode: transparent overlay intercepts touches to wake kiosk
+            if kioskManager.isScreensaverActive && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        kioskManager.handleUserActivity()
+                    }
+            }
+
+            // Clock Screensaver overlay
+            if kioskManager.isScreensaverActive && (settings.screensaverMode == "clock" || settings.screensaverMode.isEmpty) {
                 ScreensaverView()
                     .environmentObject(kioskManager)
                     .environmentObject(faceDetectionManager)
@@ -54,6 +65,7 @@ struct ContentView: View {
                         .opacity(0.1)
                         .frame(width: 50, height: 50)
                         .onTapGesture(count: 3) {
+                            kioskManager.setSettingsOpen(true)
                             showingSettings = true
                         }
                 }
@@ -68,6 +80,17 @@ struct ContentView: View {
         }
         .onDisappear {
             brightnessManager.restoreOriginalBrightness()
+            webServerManager.stop()
+        }
+        .onChange(of: showingSettings) { isOpen in
+            kioskManager.setSettingsOpen(isOpen)
+        }
+        .onReceive(kioskManager.$isScreensaverActive) { active in
+            if active && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
+                faceDetectionManager.startDetection()
+            } else if !active && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
+                faceDetectionManager.stopDetection()
+            }
         }
         .onReceive(faceDetectionManager.$faceDetected) { faceDetected in
             if faceDetected && kioskManager.isScreensaverActive {
@@ -87,9 +110,16 @@ struct ContentView: View {
     }
 
     /// Returns 1.0 for the currently active slide, 0.0 for all others.
-    /// All WebViews remain in the hierarchy at opacity 0 to stay alive.
+    /// In "urls" or "dimming" mode during screensaver, active slide stays visible.
+    /// In "clock" mode, webview opacity is 0.0 beneath the black screensaver.
     private func webViewOpacity(for index: Int) -> Double {
-        guard !kioskManager.isScreensaverActive else { return 0 }
+        if kioskManager.isScreensaverActive {
+            if settings.screensaverMode == "urls" || settings.screensaverMode == "dimming" {
+                return index == slideshowManager.currentIndex ? 1.0 : 0.0
+            } else {
+                return 0.0
+            }
+        }
         return index == slideshowManager.currentIndex ? 1.0 : 0.0
     }
 
@@ -115,6 +145,9 @@ struct ContentView: View {
         if settings.enableMQTT {
             mqttManager.connect()
         }
+
+        // Start remote web server if enabled
+        webServerManager.start()
     }
 
     private func setupNotifications() {
@@ -135,11 +168,19 @@ struct ContentView: View {
         ) { _ in
             handleScreensaverActivated()
         }
+
+        // Remote wakeup notification
+        NotificationCenter.default.addObserver(
+            forName: Notification.Name("UltraKiosk.remoteWakeup"),
+            object: nil,
+            queue: .main
+        ) { _ in
+            kioskManager.exitScreensaver()
+        }
     }
 
     private func handleScreensaverActivated() {
         AppLogger.app.info("Activating screensaver")
-
         kioskManager.activateScreensaver()
     }
 
@@ -190,5 +231,4 @@ struct ContentView: View {
             NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
         }
     }
-
 }

@@ -1,9 +1,9 @@
 import Foundation
 import Combine
 
-/// Manages the slideshow timer and tracks the currently visible slide index.
-/// Automatically pauses when the screensaver is active and resumes from the
-/// same index when the screensaver is dismissed.
+/// Manages cycling through URLs when the screensaver is in "URLs" mode.
+/// Smoothly transitions between configured URLs and automatically resets
+/// to slide 0 when the kiosk wakes up.
 final class SlideshowManager: ObservableObject {
 
     @Published var currentIndex: Int = 0
@@ -19,36 +19,69 @@ final class SlideshowManager: ObservableObject {
         self.settings = settings
         self.kioskManager = kioskManager
 
-        // Pause timer while screensaver is active; resume when dismissed
+        // Watch screensaver state
         kioskManager.$isScreensaverActive
             .receive(on: RunLoop.main)
-            .sink { [weak self] isActive in
-                isActive ? self?.pauseTimer() : self?.startTimer()
+            .sink { [weak self] _ in
+                self?.updateTimerState()
             }
             .store(in: &cancellables)
 
-        // Restart when the URL list changes (e.g. user edits settings at runtime)
+        // Watch screensaver mode
+        settings.$screensaverMode
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.updateTimerState()
+            }
+            .store(in: &cancellables)
+
+        // Restart when the URL list changes
         settings.$slideshowURLs
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.restart() }
+            .sink { [weak self] _ in
+                self?.restart()
+            }
             .store(in: &cancellables)
 
         // Restart when the interval changes
         settings.$slideshowInterval
             .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.restart() }
+            .sink { [weak self] _ in
+                self?.restart()
+            }
             .store(in: &cancellables)
     }
 
     /// Starts the slideshow. Call after configure().
-    func start() { restart() }
+    func start() {
+        updateTimerState()
+    }
 
     // MARK: - Private
 
+    private func updateTimerState() {
+        guard let s = settings, let km = kioskManager else { return }
+        
+        if s.screensaverMode == "urls" {
+            if km.isScreensaverActive {
+                startTimer()
+            } else {
+                pauseTimer()
+                if currentIndex != 0 {
+                    currentIndex = 0
+                }
+            }
+        } else {
+            pauseTimer()
+            if currentIndex != 0 {
+                currentIndex = 0
+            }
+        }
+    }
+
     private func startTimer() {
         guard let s = settings,
-              s.effectiveURLs.count > 1,
-              kioskManager?.isScreensaverActive == false else { return }
+              s.effectiveURLs.count > 1 else { return }
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: s.slideshowInterval, repeats: true) { [weak self] _ in
             self?.advance()
@@ -58,19 +91,16 @@ final class SlideshowManager: ObservableObject {
     private func pauseTimer() {
         timer?.invalidate()
         timer = nil
-        // currentIndex is intentionally NOT reset — slideshow resumes from the same slide
     }
 
     private func restart() {
         pauseTimer()
         let count = settings?.effectiveURLs.count ?? 0
-        // Clamp index in case the URL list shrank — only write if it actually changes
-        // to avoid spurious @Published emissions that break Combine test subscribers.
         if count > 0 {
             let clamped = min(currentIndex, count - 1)
             if clamped != currentIndex { currentIndex = clamped }
         }
-        startTimer()
+        updateTimerState()
     }
 
     private func advance() {
