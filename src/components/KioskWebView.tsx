@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { WelcomeView } from "./WelcomeView";
 import { ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
 
 interface KioskWebViewProps {
   url: string | null;
   isActive: boolean;
+  reloadCounter?: number;
   onOpenSettings: () => void;
   onActivity: () => void;
 }
@@ -12,20 +13,28 @@ interface KioskWebViewProps {
 export const KioskWebView: React.FC<KioskWebViewProps> = ({
   url,
   isActive,
+  reloadCounter = 0,
   onOpenSettings,
   onActivity,
 }) => {
   const [iframeError, setIframeError] = useState<boolean>(false);
-  const [reloadKey, setReloadKey] = useState<number>(0);
+  const [localReloadKey, setLocalReloadKey] = useState<number>(0);
+
+  // If reloadCounter changes, force refresh
+  useEffect(() => {
+    if (reloadCounter > 0) {
+      setLocalReloadKey((k) => k + 1);
+    }
+  }, [reloadCounter]);
 
   // If no URL or blank, render the authentic welcome screen
   if (!url || url.trim() === "") {
     return <WelcomeView />;
   }
 
-  const handleReload = () => {
+  const handleManualReload = () => {
     setIframeError(false);
-    setReloadKey((prev) => prev + 1);
+    setLocalReloadKey((prev) => prev + 1);
   };
 
   return (
@@ -35,9 +44,9 @@ export const KioskWebView: React.FC<KioskWebViewProps> = ({
       onTouchStart={onActivity}
     >
       <iframe
-        key={reloadKey}
+        key={localReloadKey}
         src={url}
-        title="UltraKiosk Web View"
+        title="PadPanel Web View"
         className="w-full h-full border-0 bg-black"
         allow="camera; microphone; display-capture; fullscreen; geolocation"
         sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
@@ -56,7 +65,7 @@ export const KioskWebView: React.FC<KioskWebViewProps> = ({
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={handleReload}
+              onClick={handleManualReload}
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium flex items-center space-x-2 border border-white/20"
             >
               <RefreshCw className="w-4 h-4" />

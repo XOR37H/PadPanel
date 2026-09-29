@@ -10,12 +10,14 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
   const [isSlideshowPaused, setIsSlideshowPaused] = useState<boolean>(false);
   const [inactivitySecondsLeft, setInactivitySecondsLeft] = useState<number>(settings.screensaverTimeout);
-  const [batteryLevel, setBatteryLevel] = useState<number>(85);
+  const [batteryLevel, setBatteryLevel] = useState<number>(88);
   const [isCharging, setIsCharging] = useState<boolean>(true);
   const [lastMqttReportTime, setLastMqttReportTime] = useState<Date | null>(null);
+  const [reloadCounter, setReloadCounter] = useState<number>(0);
 
   const inactivityTimerRef = useRef<number | null>(null);
   const slideshowTimerRef = useRef<number | null>(null);
+  const autoRefreshTimerRef = useRef<number | null>(null);
   const batteryTimerRef = useRef<number | null>(null);
 
   // Filter non-empty URLs
@@ -31,20 +33,30 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   }, [settings.screensaverTimeout, isScreensaverActive]);
 
   const activateScreensaver = useCallback(() => {
+    if (settings.screensaverMode === "off") return;
     setIsScreensaverActive(true);
-  }, []);
+  }, [settings.screensaverMode]);
 
   const exitScreensaver = useCallback(() => {
     setIsScreensaverActive(false);
     setInactivitySecondsLeft(settings.screensaverTimeout);
   }, [settings.screensaverTimeout]);
 
+  const reloadAllWebViews = useCallback(() => {
+    setReloadCounter((c) => c + 1);
+  }, []);
+
   // Inactivity countdown loop
   useEffect(() => {
+    if (settings.screensaverMode === "off") {
+      if (isScreensaverActive) setIsScreensaverActive(false);
+      return;
+    }
+
     inactivityTimerRef.current = window.setInterval(() => {
       setInactivitySecondsLeft((prev) => {
         if (prev <= 1) {
-          if (!isScreensaverActive) {
+          if (!isScreensaverActive && settings.screensaverMode !== "off") {
             setIsScreensaverActive(true);
           }
           return 0;
@@ -58,7 +70,7 @@ export function useKioskManager({ settings }: KioskManagerProps) {
         clearInterval(inactivityTimerRef.current);
       }
     };
-  }, [isScreensaverActive]);
+  }, [isScreensaverActive, settings.screensaverMode]);
 
   // When timeout setting changes, update remaining seconds
   useEffect(() => {
@@ -83,9 +95,12 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   }, [handleUserActivity]);
 
   // Slideshow advance timer
+  // Runs if multiple slides, or if screensaverMode === 'urls' and on screensaver
   useEffect(() => {
-    // Only run if multiple slides and not paused and not on screensaver
-    if (totalSlides <= 1 || isSlideshowPaused || isScreensaverActive) {
+    const isUrlsScreensaver = isScreensaverActive && settings.screensaverMode === "urls";
+    const canRunSlideshow = (totalSlides > 1 && !isSlideshowPaused && !isScreensaverActive) || (isUrlsScreensaver && totalSlides > 1);
+
+    if (!canRunSlideshow) {
       if (slideshowTimerRef.current) {
         clearInterval(slideshowTimerRef.current);
         slideshowTimerRef.current = null;
@@ -104,7 +119,49 @@ export function useKioskManager({ settings }: KioskManagerProps) {
         slideshowTimerRef.current = null;
       }
     };
-  }, [totalSlides, isSlideshowPaused, isScreensaverActive, settings.slideshowInterval]);
+  }, [totalSlides, isSlideshowPaused, isScreensaverActive, settings.screensaverMode, settings.slideshowInterval]);
+
+  // Auto-refresh WebView timer
+  useEffect(() => {
+    if (!settings.enableAutoRefresh) {
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
+      return;
+    }
+
+    const refreshMs = Math.max(10, settings.autoRefreshInterval) * 1000;
+    autoRefreshTimerRef.current = window.setInterval(() => {
+      setReloadCounter((c) => c + 1);
+    }, refreshMs);
+
+    return () => {
+      if (autoRefreshTimerRef.current) {
+        clearInterval(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
+    };
+  }, [settings.enableAutoRefresh, settings.autoRefreshInterval]);
+
+  // Listen to remote actions (MQTT & WebUI)
+  useEffect(() => {
+    const handleRemoteAction = (e: CustomEvent) => {
+      const action = e.detail?.action;
+      if (action === "screensaver") {
+        activateScreensaver();
+      } else if (action === "wakeup") {
+        exitScreensaver();
+      } else if (action === "reload") {
+        reloadAllWebViews();
+      }
+    };
+
+    window.addEventListener("padpanel:remote-action" as any, handleRemoteAction);
+    return () => {
+      window.removeEventListener("padpanel:remote-action" as any, handleRemoteAction);
+    };
+  }, [activateScreensaver, exitScreensaver, reloadAllWebViews]);
 
   // Make sure currentSlideIndex is in bounds if URLs change
   useEffect(() => {
@@ -154,6 +211,10 @@ export function useKioskManager({ settings }: KioskManagerProps) {
     handleUserActivity();
   };
 
+  const togglePauseSlideshow = () => {
+    setIsSlideshowPaused((prev) => !prev);
+  };
+
   const goToSlide = (index: number) => {
     if (index >= 0 && index < totalSlides) {
       setCurrentSlideIndex(index);
@@ -161,33 +222,44 @@ export function useKioskManager({ settings }: KioskManagerProps) {
     }
   };
 
-  const togglePauseSlideshow = () => {
-    setIsSlideshowPaused((prev) => !prev);
-    handleUserActivity();
-  };
+  // Compute display brightness based on state and mode
+  // If screensaver is active:
+  // - "clock": brightness is screenBrightnessDimmed (and clock view is overlayed)
+  // - "dimming": brightness is screenBrightnessDimmed (kiosk webview stays visible)
+  // - "urls": brightness is screenBrightnessNormal (or dimmed if configured)
+  // When active: screenBrightnessNormal
+  let currentBrightness = settings.screenBrightnessNormal;
+  if (isScreensaverActive) {
+    if (settings.screensaverMode === "dimming" || settings.screensaverMode === "clock") {
+      currentBrightness = settings.screenBrightnessDimmed;
+    }
+  }
 
-  // Brightness factor: screenBrightnessDimmed when screensaver active, else screenBrightnessNormal
-  const currentBrightness = isScreensaverActive
-    ? settings.screenBrightnessDimmed
-    : settings.screenBrightnessNormal;
+  // Determine whether the clock screensaver overlay should actually be shown
+  const shouldShowClockScreensaver = isScreensaverActive && settings.screensaverMode === "clock";
+  const isDimmedOnly = isScreensaverActive && settings.screensaverMode === "dimming";
 
   return {
     isScreensaverActive,
+    shouldShowClockScreensaver,
+    isDimmedOnly,
+    currentBrightness,
     currentSlideIndex,
-    totalSlides,
-    effectiveURLs,
     isSlideshowPaused,
     inactivitySecondsLeft,
+    effectiveURLs,
+    totalSlides,
     batteryLevel,
     isCharging,
     lastMqttReportTime,
-    currentBrightness,
+    reloadCounter,
+    handleUserActivity,
     activateScreensaver,
     exitScreensaver,
-    handleUserActivity,
+    reloadAllWebViews,
     nextSlide,
     prevSlide,
-    goToSlide,
     togglePauseSlideshow,
+    goToSlide,
   };
 }

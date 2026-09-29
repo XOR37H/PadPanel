@@ -1,3 +1,6 @@
+export type ScreensaverMode = "clock" | "dimming" | "urls" | "off";
+export type WakeupMethod = "face" | "motion";
+
 export interface UltraKioskSettings {
   // Home Assistant
   homeAssistantIP: string;
@@ -15,11 +18,26 @@ export interface UltraKioskSettings {
   mqttTopicPrefix: string;
   mqttBatteryUpdateInterval: number; // seconds
 
-  // Screensaver
+  // Screensaver & Display
   screensaverTimeout: number; // seconds
+  screensaverMode: ScreensaverMode; // "clock", "dimming", "urls", "off"
   screenBrightnessDimmed: number; // 0.05 to 0.8
   screenBrightnessNormal: number; // 0.3 to 1.0
+
+  // Face & Motion Detection Wakeup
   faceDetectionInterval: number; // seconds
+  wakeupMethod: WakeupMethod; // "face" or "motion"
+  motionSensitivity: number; // 0.02 (high) to 0.25 (low), default 0.08
+  showDebugInfo: boolean; // overlay camera & motion debug telemetry
+
+  // Auto Refresh
+  enableAutoRefresh: boolean;
+  autoRefreshInterval: number; // seconds, default 300 (5m)
+
+  // Remote Web Server / WebUI
+  enableWebServer: boolean;
+  webServerPort: number; // default 8080
+  webServerPassword: string;
 
   // Voice Satellite
   enableVoiceActivation: boolean;
@@ -36,26 +54,47 @@ export interface UltraKioskSettings {
   slideshowInterval: number; // seconds
 }
 
+export type PadPanelSettings = UltraKioskSettings;
+
 export const DEFAULT_SETTINGS: UltraKioskSettings = {
+  // Home Assistant
   homeAssistantIP: "homeassistant.local",
   homeAssistantPort: "8123",
   accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwYTJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM",
   useHTTPS: false,
 
+  // MQTT
   enableMQTT: true,
   mqttBrokerIP: "homeassistant.local",
   mqttPort: "1883",
   mqttUsername: "homeassistant",
-  mqttPassword: "",
+  mqttPassword: "iepoiph4ongiesah2zoZae4AiLa8bie9oochaahaiQuoush3or3kiequoo3xohye",
   mqttUseTLS: false,
   mqttTopicPrefix: "homeassistant",
   mqttBatteryUpdateInterval: 60.0,
 
+  // Screensaver & Display
   screensaverTimeout: 60.0,
+  screensaverMode: "clock",
   screenBrightnessDimmed: 0.2,
   screenBrightnessNormal: 0.7,
-  faceDetectionInterval: 1.0,
 
+  // Face & Motion Detection Wakeup
+  faceDetectionInterval: 1.0,
+  wakeupMethod: "face",
+  motionSensitivity: 0.08,
+  showDebugInfo: true,
+
+  // Auto Refresh
+  enableAutoRefresh: false,
+  autoRefreshInterval: 300.0,
+
+  // Remote Web Server / WebUI
+  enableWebServer: true,
+  webServerPort: 8080,
+  webServerPassword: "",
+
+  // Voice Satellite
   enableVoiceActivation: true,
   voiceSampleRate: 16000,
   voiceTimeout: 2,
@@ -64,16 +103,18 @@ export const DEFAULT_SETTINGS: UltraKioskSettings = {
   homeAssistantConversationAgent: "conversation.claude_conversation",
   homeAssistantConversationId: "ipad",
 
+  // Kiosk / Slideshow
   kioskURL: "http://homeassistant.local:8123/anzeige-flur/0?kiosk",
   slideshowURLs: [],
   slideshowInterval: 30.0,
 };
 
-const STORAGE_KEY = "ultrakiosk_settings_v1";
+const STORAGE_KEY = "padpanel_settings_v2";
+const LEGACY_STORAGE_KEY = "ultrakiosk_settings_v1";
 
 export function loadSettingsFromStorage(): UltraKioskSettings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw);
     return {
@@ -91,6 +132,7 @@ export function loadSettingsFromStorage(): UltraKioskSettings {
 export function saveSettingsToStorage(settings: UltraKioskSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    window.dispatchEvent(new CustomEvent("padpanel:settings-changed", { detail: settings }));
     window.dispatchEvent(new CustomEvent("ultrakiosk:settings-changed", { detail: settings }));
   } catch (e) {
     console.error("Failed to save settings to storage:", e);
@@ -122,6 +164,12 @@ export function validateSettings(settings: UltraKioskSettings): string[] {
 
   if (settings.faceDetectionInterval < 0.1) {
     issues.push("Face detection interval should be at least 0.1 seconds");
+  }
+
+  if (settings.enableWebServer) {
+    if (isNaN(settings.webServerPort) || settings.webServerPort < 1024 || settings.webServerPort > 65535) {
+      issues.push("Web Server port must be between 1024 and 65535");
+    }
   }
 
   return issues;
