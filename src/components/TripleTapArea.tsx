@@ -9,24 +9,25 @@ export const TripleTapArea: React.FC<TripleTapAreaProps> = ({ onTrigger }) => {
   const [tapCount, setTapCount] = useState<number>(0);
   const timerRef = useRef<number | null>(null);
 
-  const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
+  const handleTap = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    setTapCount((prev) => {
-      const next = prev + 1;
-      if (next >= 3) {
-        onTrigger();
-        return 0;
-      }
-      return next;
-    });
 
+    // Clear existing timer
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
     }
 
-    timerRef.current = window.setTimeout(() => {
+    const nextCount = tapCount + 1;
+
+    if (nextCount >= 3) {
       setTapCount(0);
-    }, 700);
+      onTrigger();
+    } else {
+      setTapCount(nextCount);
+      timerRef.current = window.setTimeout(() => {
+        setTapCount(0);
+      }, 700);
+    }
   };
 
   // Keyboard shortcut: Press 'S' to open settings easily on laptop / desktop
@@ -45,11 +46,11 @@ export const TripleTapArea: React.FC<TripleTapAreaProps> = ({ onTrigger }) => {
 
   return (
     <div className="fixed top-2 right-2 z-30 select-none">
-      <div
-        onClick={handleClick}
-        onTouchEnd={handleClick}
+      <button
+        type="button"
+        onClick={handleTap}
         title="Triple-tap to open PadPanel Settings (or press 'S')"
-        className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition flex items-center justify-center cursor-pointer border border-white/15 backdrop-blur-sm relative group"
+        className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 transition flex items-center justify-center cursor-pointer border border-white/15 backdrop-blur-sm relative group focus:outline-none"
       >
         <Settings className="w-4 h-4 text-white/40 group-hover:text-white/80 transition-colors" />
 
@@ -59,7 +60,7 @@ export const TripleTapArea: React.FC<TripleTapAreaProps> = ({ onTrigger }) => {
             {tapCount}
           </span>
         )}
-      </div>
+      </button>
     </div>
   );
 };
