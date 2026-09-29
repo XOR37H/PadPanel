@@ -427,7 +427,7 @@ class MQTTManager: ObservableObject {
         }
         if topic.contains("/wakeup/set") {
             DispatchQueue.main.async {
-                NotificationCenter.default.post(name: Notification.Name("UltraKiosk.remoteWakeup"), object: nil)
+                NotificationCenter.default.post(name: .remoteWakeup, object: nil)
             }
         }
         if topic.contains("/reload/set") {
@@ -580,6 +580,7 @@ extension Notification.Name {
     static let mqttScreensaverActivated = Notification.Name("MQTTScreensaverActivated")
     static let mqttConnected = Notification.Name("MQTTConnected")
     static let mqttDisconnected = Notification.Name("MQTTDisconnected")
+    static let remoteWakeup = Notification.Name("UltraKioskRemoteWakeup")
 }
 
 // MARK: - Settings over MQTT (Discovery, Commands, States)

@@ -72,9 +72,10 @@ final class SlideshowManager: ObservableObject {
                 }
             }
         } else {
-            pauseTimer()
-            if currentIndex != 0 {
-                currentIndex = 0
+            if !km.isScreensaverActive {
+                startTimer()
+            } else {
+                pauseTimer()
             }
         }
     }

@@ -2,6 +2,9 @@ import Foundation
 import Network
 import Combine
 import UIKit
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// Lightweight zero-dependency embedded HTTP server for remote kiosk management.
 /// Powered by Apple's Network.framework (iOS 12+ / iOS 15).
@@ -276,7 +279,7 @@ final class WebServerManager: ObservableObject {
             case "screensaver":
                 NotificationCenter.default.post(name: .mqttScreensaverActivated, object: nil)
             case "wakeup":
-                NotificationCenter.default.post(name: Notification.Name("UltraKiosk.remoteWakeup"), object: nil)
+                NotificationCenter.default.post(name: .remoteWakeup, object: nil)
             case "reload":
                 NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
             default:
@@ -652,25 +655,35 @@ final class WebServerManager: ObservableObject {
 
     // MARK: - Local IP Helper
     private func getWiFiAddress() -> String? {
+        #if canImport(Darwin)
         var address: String?
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifaddr) == 0, let firstAddr = ifaddr else { return nil }
-        for ptr in sequence(first: firstAddr, by: { $0.pointee.ifa_next }) {
-            let flags = Int32(ptr.pointee.ifa_flags)
-            let addr = ptr.pointee.ifa_addr.pointee
-            if (flags & (IFF_UP|IFF_RUNNING|IFF_LOOPBACK)) == (IFF_UP|IFF_RUNNING) {
-                if addr.sa_family == UInt8(AF_INET) {
-                    let name = String(cString: ptr.pointee.ifa_name)
-                    if name == "en0" { // standard iOS Wi-Fi interface
-                        var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-                        if getnameinfo(ptr.pointee.ifa_addr, socklen_t(addr.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
-                            address = String(cString: hostname)
-                        }
+        var ptr: UnsafeMutablePointer<ifaddrs>? = firstAddr
+        while let current = ptr {
+            defer { ptr = current.pointee.ifa_next }
+            guard let ifaAddr = current.pointee.ifa_addr else { continue }
+            if ifaAddr.pointee.sa_family == UInt8(AF_INET) {
+                let name = String(cString: current.pointee.ifa_name)
+                // Prefer en0 (standard Wi-Fi on iOS), or fallback to en1 or other non-loopback interface
+                if name == "en0" {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    if getnameinfo(ifaAddr, socklen_t(ifaAddr.pointee.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
+                        address = String(cString: hostname)
+                        break
+                    }
+                } else if address == nil && name != "lo0" {
+                    var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    if getnameinfo(ifaAddr, socklen_t(ifaAddr.pointee.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0 {
+                        address = String(cString: hostname)
                     }
                 }
             }
         }
-        freeifaddrs(ifaddr)
+        freeifaddrs(firstAddr)
         return address
+        #else
+        return nil
+        #endif
     }
 }

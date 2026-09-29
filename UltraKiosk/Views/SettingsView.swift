@@ -327,10 +327,13 @@ struct SettingsView: View {
                 HStack {
                     Text("Port")
                     Spacer()
-                    TextField("8080", value: $settings.webServerPort, formatter: NumberFormatter())
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                        .keyboardType(.numberPad)
-                        .frame(maxWidth: 100)
+                    TextField("8080", text: Binding(
+                        get: { String(settings.webServerPort) },
+                        set: { if let p = Int($0) { settings.webServerPort = p } }
+                    ))
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .keyboardType(.numberPad)
+                    .frame(maxWidth: 100)
                 }
                 
                 VStack(alignment: .leading, spacing: 4) {

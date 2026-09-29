@@ -171,7 +171,7 @@ struct ContentView: View {
 
         // Remote wakeup notification
         NotificationCenter.default.addObserver(
-            forName: Notification.Name("UltraKiosk.remoteWakeup"),
+            forName: .remoteWakeup,
             object: nil,
             queue: .main
         ) { _ in
