@@ -1,6 +1,8 @@
 # Test Setup
 
-This document describes how to configure the unit test target in Xcode and how tests are run in GitHub Actions CI.
+This document describes how to configure the unit test target in Xcode and how tests are run in GitHub Actions CI for the native iOS application (`PadPanel`).
+
+*(Note: For running the web application version in AI Studio or development, use `npm run dev`.)*
 
 ## Prerequisites
 
@@ -13,30 +15,30 @@ This document describes how to configure the unit test target in Xcode and how t
 
 ### 1.1 Add the target
 
-1. Open `UltraKiosk.xcodeproj` in Xcode.
+1. Open `PadPanel.xcodeproj` in Xcode.
 2. **File → New → Target**
 3. Select **Unit Testing Bundle** → **Next**
 4. Fill in the fields:
-   - **Product Name:** `UltraKioskTests`
+   - **Product Name:** `PadPanelTests`
    - **Team:** same as the main app target
-   - **Host Application:** `UltraKiosk`
+   - **Host Application:** `PadPanel`
    - **Language:** Swift
 5. Click **Finish**.
 
 ### 1.2 Remove the generated placeholder
 
-Xcode auto-generates an empty `UltraKioskTests.swift`. Delete it:
+Xcode auto-generates an empty `PadPanelTests.swift`. Delete it:
 
-1. Select `UltraKioskTests.swift` in the Project Navigator.
+1. Select `PadPanelTests.swift` in the Project Navigator.
 2. Press **Delete** → **Move to Trash**.
 
 ### 1.3 Add the existing test files to the target
 
-The test sources already exist in the `UltraKioskTests/` folder on disk. Each file must be added to the new target:
+The test sources already exist in the `PadPanelTests/` folder on disk. Each file must be added to the new target:
 
 1. Select each file below in the Project Navigator.
 2. Open the **File Inspector** (right panel, ⌥+⌘+1).
-3. Under **Target Membership**, check `UltraKioskTests`.
+3. Under **Target Membership**, check `PadPanelTests`.
 
 Files to add:
 
@@ -53,7 +55,7 @@ Files to add:
 
 1. **Product → Scheme → Edit Scheme…** (`Cmd+<`)
 2. Select **Test** in the left sidebar.
-3. Click **+** and add `UltraKioskTests`.
+3. Click **+** and add `PadPanelTests`.
 4. Optional but recommended: select **Options → Gather Coverage Data** to get code coverage reports.
 5. Click **Close**.
 
@@ -71,7 +73,7 @@ The Test Navigator (**`Cmd+6`**) shows individual results with green/red indicat
 Each test class uses an isolated `UserDefaults` suite so tests never affect each other or the app's real settings:
 
 ```swift
-private static let suiteName = "test.ultrakiosk.settings"
+private static let suiteName = "test.padpanel.settings"
 
 override func setUp() {
     testDefaults = .testSuite(name: Self.suiteName)
@@ -142,7 +144,7 @@ Expected until the test target exists in the `.xcodeproj`. SourceKit cannot inde
 
 ### Tests are not discovered by Xcode
 
-Check that the files are listed under the `UltraKioskTests` target in the project file (`project.pbxproj`). Re-add them via File Inspector → Target Membership if missing.
+Check that the files are listed under the `PadPanelTests` target in the project file (`project.pbxproj`). Re-add them via File Inspector → Target Membership if missing.
 
 ### CI fails with "xcodebuild: error: The test action requires that the scheme … has at least one test target"
 
@@ -158,7 +160,7 @@ Increase the `timeout:` parameter in `wait(for:timeout:)` calls. Tests currently
 
 ### How it works
 
-Dependabot's Swift support requires a `Package.swift` manifest. Because this project manages SPM dependencies entirely through Xcode (no standalone `Package.swift`), a minimal manifest exists at the repository root **for Dependabot only**. Xcode ignores it when opening `UltraKiosk.xcodeproj`.
+Dependabot's Swift support requires a `Package.swift` manifest. Because this project manages SPM dependencies entirely through Xcode (no standalone `Package.swift`), a minimal manifest exists at the repository root **for Dependabot only**. Xcode ignores it when opening `PadPanel.xcodeproj`.
 
 Dependabot is configured in `.github/dependabot.yml` and tracks:
 
@@ -173,9 +175,9 @@ PRs are opened every Monday. Each PR updates the version constraint in `Package.
 
 Dependabot updates `Package.swift` only. The Xcode project still pins its own copy of the dependencies. After merging a Dependabot PR, apply the version bump in Xcode:
 
-1. Open `UltraKiosk.xcodeproj`.
+1. Open `PadPanel.xcodeproj`.
 2. **File → Packages → Update to Latest Package Versions**  
-   Xcode resolves all packages and updates `UltraKiosk.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+   Xcode resolves all packages and updates `PadPanel.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
 3. Build (`Cmd+B`) and run tests (`Cmd+U`) to verify nothing broke.
 4. Commit the updated `.xcodeproj`.
 
