@@ -2,6 +2,11 @@ export type ScreensaverMode = "clock" | "dimming" | "urls" | "off";
 export type WakeupMethod = "face" | "motion";
 
 export interface UltraKioskSettings {
+  // Device & WebUI Authentication (Ubiquitous)
+  deviceAdminUsername: string; // default "admin"
+  deviceAdminPassword: string; // default ""
+  requireDeviceAuth: boolean; // Protect on-device kiosk settings (triple tap)
+
   // Home Assistant
   homeAssistantIP: string;
   homeAssistantPort: string;
@@ -37,7 +42,8 @@ export interface UltraKioskSettings {
   // Remote Web Server / WebUI
   enableWebServer: boolean;
   webServerPort: number; // default 8080
-  webServerPassword: string;
+  webServerPassword: string; // mirrors deviceAdminPassword
+  webServerUsername: string; // mirrors deviceAdminUsername
 
   // Voice Satellite
   enableVoiceActivation: boolean;
@@ -57,6 +63,11 @@ export interface UltraKioskSettings {
 export type PadPanelSettings = UltraKioskSettings;
 
 export const DEFAULT_SETTINGS: UltraKioskSettings = {
+  // Device & WebUI Authentication
+  deviceAdminUsername: "admin",
+  deviceAdminPassword: "",
+  requireDeviceAuth: false,
+
   // Home Assistant
   homeAssistantIP: "homeassistant.local",
   homeAssistantPort: "8123",
@@ -64,7 +75,7 @@ export const DEFAULT_SETTINGS: UltraKioskSettings = {
   useHTTPS: false,
 
   // MQTT
-  enableMQTT: true,
+  enableMQTT: false,
   mqttBrokerIP: "homeassistant.local",
   mqttPort: "1883",
   mqttUsername: "homeassistant",
@@ -83,19 +94,20 @@ export const DEFAULT_SETTINGS: UltraKioskSettings = {
   faceDetectionInterval: 1.0,
   wakeupMethod: "face",
   motionSensitivity: 0.08,
-  showDebugInfo: true,
+  showDebugInfo: false,
 
   // Auto Refresh
   enableAutoRefresh: false,
   autoRefreshInterval: 300.0,
 
   // Remote Web Server / WebUI
-  enableWebServer: true,
+  enableWebServer: false,
   webServerPort: 8080,
   webServerPassword: "",
+  webServerUsername: "admin",
 
   // Voice Satellite
-  enableVoiceActivation: true,
+  enableVoiceActivation: false,
   voiceSampleRate: 16000,
   voiceTimeout: 2,
   porcupineAccessToken: "YTvBtr2dk1wvG5ZeOqT5Gg8Ui2gMGy/qaeTLst0dPBBpxuJK2vkDqg==",
@@ -117,9 +129,20 @@ export function loadSettingsFromStorage(): UltraKioskSettings {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
     const parsed = JSON.parse(raw);
+    
+    // Normalize authentication fields if legacy
+    const adminUser = parsed.deviceAdminUsername || parsed.webServerUsername || DEFAULT_SETTINGS.deviceAdminUsername;
+    const adminPass = parsed.deviceAdminPassword ?? parsed.webServerPassword ?? DEFAULT_SETTINGS.deviceAdminPassword;
+    const reqAuth = parsed.requireDeviceAuth ?? (adminPass.length > 0);
+
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      deviceAdminUsername: adminUser,
+      deviceAdminPassword: adminPass,
+      webServerUsername: adminUser,
+      webServerPassword: adminPass,
+      requireDeviceAuth: reqAuth,
       // Ensure slideshowURLs is always an array
       slideshowURLs: Array.isArray(parsed.slideshowURLs) ? parsed.slideshowURLs : [],
     };
@@ -131,9 +154,15 @@ export function loadSettingsFromStorage(): UltraKioskSettings {
 
 export function saveSettingsToStorage(settings: UltraKioskSettings): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    window.dispatchEvent(new CustomEvent("padpanel:settings-changed", { detail: settings }));
-    window.dispatchEvent(new CustomEvent("ultrakiosk:settings-changed", { detail: settings }));
+    // Keep username and password fields synchronized
+    const normalized: UltraKioskSettings = {
+      ...settings,
+      webServerUsername: settings.deviceAdminUsername,
+      webServerPassword: settings.deviceAdminPassword,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    window.dispatchEvent(new CustomEvent("padpanel:settings-changed", { detail: normalized }));
+    window.dispatchEvent(new CustomEvent("ultrakiosk:settings-changed", { detail: normalized }));
   } catch (e) {
     console.error("Failed to save settings to storage:", e);
   }

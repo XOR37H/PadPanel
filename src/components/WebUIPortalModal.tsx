@@ -9,6 +9,7 @@ import {
   Power,
   Sun,
   Eye,
+  EyeOff,
   Camera,
   Sliders,
   Save,
@@ -20,6 +21,7 @@ import {
   BatteryCharging,
   Radio,
   Layers,
+  User,
 } from "lucide-react";
 
 interface WebUIPortalModalProps {
@@ -27,6 +29,7 @@ interface WebUIPortalModalProps {
   onClose: () => void;
   settings: UltraKioskSettings;
   onSaveSettings: (newSettings: UltraKioskSettings) => void;
+  onLiveSettingChange?: (key: keyof UltraKioskSettings, value: any) => void;
   onTriggerAction: (action: "screensaver" | "wakeup" | "reload") => void;
   isScreensaverActive: boolean;
   batteryLevel: number;
@@ -39,14 +42,20 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
   onClose,
   settings,
   onSaveSettings,
+  onLiveSettingChange,
   onTriggerAction,
   isScreensaverActive,
   batteryLevel,
   isCharging,
   inactivitySecondsLeft,
 }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!settings.webServerPassword);
+  const adminPassword = settings.deviceAdminPassword || settings.webServerPassword || "";
+  const adminUsername = settings.deviceAdminUsername || settings.webServerUsername || "admin";
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(!adminPassword);
+  const [enteredUsername, setEnteredUsername] = useState<string>(adminUsername);
   const [enteredPassword, setEnteredPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Form state for remote settings editing
@@ -58,22 +67,42 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setForm({ ...settings, slideshowURLs: [...settings.slideshowURLs] });
-      setIsAuthenticated(!settings.webServerPassword);
+      setIsAuthenticated(!adminPassword);
+      setEnteredUsername(adminUsername);
       setEnteredPassword("");
+      setShowPassword(false);
       setAuthError(null);
       setSaveSuccessMsg(null);
     }
-  }, [isOpen, settings]);
+  }, [isOpen, settings, adminPassword, adminUsername]);
 
   if (!isOpen) return null;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (enteredPassword === settings.webServerPassword) {
+    const isUserValid = !adminUsername || enteredUsername.trim().toLowerCase() === adminUsername.trim().toLowerCase();
+    const isPassValid = enteredPassword === adminPassword;
+
+    if (isUserValid && isPassValid) {
       setIsAuthenticated(true);
       setAuthError(null);
     } else {
-      setAuthError("Invalid password. Please check settings configured in PadPanel.");
+      setAuthError("Authentication failed: Invalid username or password.");
+    }
+  };
+
+  // Real-time brightness & setting slider handler
+  const handleBrightnessChange = (key: "screenBrightnessDimmed" | "screenBrightnessNormal", val: number) => {
+    setForm((prev) => ({ ...prev, [key]: val }));
+    if (onLiveSettingChange) {
+      onLiveSettingChange(key, val);
+    }
+  };
+
+  const handleLiveSliderChange = (key: keyof UltraKioskSettings, val: any) => {
+    setForm((prev) => ({ ...prev, [key]: val }));
+    if (onLiveSettingChange) {
+      onLiveSettingChange(key, val);
     }
   };
 
@@ -95,15 +124,16 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
     webServer: {
       enabled: settings.enableWebServer,
       port: settings.webServerPort,
-      authRequired: Boolean(settings.webServerPassword),
+      authRequired: Boolean(adminPassword),
+      username: adminUsername,
     },
     display: {
       screensaverActive: isScreensaverActive,
       screensaverMode: settings.screensaverMode,
       inactivitySecondsLeft,
       screensaverTimeout: settings.screensaverTimeout,
-      screenBrightnessNormal: settings.screenBrightnessNormal,
-      screenBrightnessDimmed: settings.screenBrightnessDimmed,
+      screenBrightnessNormal: form.screenBrightnessNormal,
+      screenBrightnessDimmed: form.screenBrightnessDimmed,
     },
     camera: {
       wakeupMethod: settings.wakeupMethod,
@@ -133,7 +163,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-4xl max-h-[92vh] bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden text-slate-100 font-sans animate-in fade-in zoom-in-95 duration-200">
         
         {/* Browser Mockup Chrome Bar */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-950/90 border-b border-slate-800">
@@ -165,19 +195,43 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
             </div>
             <h2 className="text-xl font-bold text-white mb-1">PadPanel Remote Admin</h2>
             <p className="text-xs text-slate-400 mb-6">
-              Enter the password configured in PadPanel settings to manage this device remotely.
+              Enter the administrator credentials configured in PadPanel Device Authentication.
             </p>
 
-            <form onSubmit={handleLogin} className="w-full space-y-4">
+            <form onSubmit={handleLogin} className="w-full space-y-4 text-left">
               <div>
-                <input
-                  type="password"
-                  placeholder="Enter web server password..."
-                  value={enteredPassword}
-                  onChange={(e) => setEnteredPassword(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-sm focus:outline-none focus:border-indigo-500 text-white"
-                  autoFocus
-                />
+                <label className="block text-xs font-medium text-slate-300 mb-1">Username</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={enteredUsername}
+                    onChange={(e) => setEnteredUsername(e.target.value)}
+                    placeholder="admin"
+                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs focus:outline-none focus:border-indigo-500 text-white font-mono"
+                  />
+                  <User className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter password..."
+                    value={enteredPassword}
+                    onChange={(e) => setEnteredPassword(e.target.value)}
+                    className="w-full px-4 py-2.5 pr-10 rounded-xl bg-slate-950 border border-slate-700 text-xs focus:outline-none focus:border-indigo-500 text-white"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               {authError && (
@@ -190,7 +244,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                 type="submit"
                 className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-indigo-600/20"
               >
-                Sign In
+                Sign In to Remote WebUI
               </button>
             </form>
           </div>
@@ -219,7 +273,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                   }`}
                 >
                   <Sliders className="w-3.5 h-3.5" />
-                  <span>Remote Settings Editor</span>
+                  <span>Remote Settings (Real-time)</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("api")}
@@ -234,7 +288,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                 </button>
               </div>
 
-              {settings.webServerPassword && (
+              {adminPassword && (
                 <button
                   onClick={() => setIsAuthenticated(false)}
                   className="text-xs text-slate-400 hover:text-slate-200 flex items-center space-x-1"
@@ -305,14 +359,14 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
 
                     <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800">
                       <div className="text-xs text-slate-400 mb-1 flex items-center justify-between">
-                        <span>MQTT Integration</span>
-                        <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Brightness</span>
+                        <Sun className="w-3.5 h-3.5 text-amber-400" />
                       </div>
                       <div className="text-lg font-bold text-white">
-                        {settings.enableMQTT ? "Enabled" : "Disabled"}
+                        {Math.round((isScreensaverActive ? form.screenBrightnessDimmed : form.screenBrightnessNormal) * 100)}%
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-1 truncate">
-                        {settings.mqttBrokerIP}
+                      <div className="text-[11px] text-slate-500 mt-1">
+                        Norm: {Math.round(form.screenBrightnessNormal * 100)}% / Dim: {Math.round(form.screenBrightnessDimmed * 100)}%
                       </div>
                     </div>
                   </div>
@@ -391,16 +445,80 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
 
               {activeTab === "settings" && (
                 <form onSubmit={handleRemoteSave} className="space-y-6">
-                  {/* Screensaver Section */}
+                  {/* Real-time Brightness & Screensaver Section */}
                   <div className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800 space-y-4">
-                    <h3 className="text-sm font-semibold text-white">Screensaver & Display Settings</h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white">Display Brightness (Real-time Live Updating)</h3>
+                        <p className="text-[11px] text-slate-400">Adjusting sliders updates the screen brightness instantly on device.</p>
+                      </div>
+                      <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Live Sync
+                      </span>
+                    </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      {/* Normal Brightness Slider */}
+                      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                            <Sun className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Normal Brightness</span>
+                          </label>
+                          <span className="text-xs font-mono font-bold text-amber-400">
+                            {Math.round(form.screenBrightnessNormal * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.3"
+                          max="1.0"
+                          step="0.05"
+                          value={form.screenBrightnessNormal}
+                          onChange={(e) => handleBrightnessChange("screenBrightnessNormal", Number(e.target.value))}
+                          className="w-full accent-amber-500"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                          <span>30%</span>
+                          <span>70% (Default)</span>
+                          <span>100%</span>
+                        </div>
+                      </div>
+
+                      {/* Dimmed Brightness Slider */}
+                      <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                            <Power className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Dimmed Brightness</span>
+                          </label>
+                          <span className="text-xs font-mono font-bold text-indigo-400">
+                            {Math.round(form.screenBrightnessDimmed * 100)}%
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.05"
+                          max="0.8"
+                          step="0.05"
+                          value={form.screenBrightnessDimmed}
+                          onChange={(e) => handleBrightnessChange("screenBrightnessDimmed", Number(e.target.value))}
+                          className="w-full accent-indigo-500"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                          <span>5% (Deep Dim)</span>
+                          <span>20% (Default)</span>
+                          <span>80%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                       <div>
                         <label className="block text-xs text-slate-400 mb-1">Screensaver Mode</label>
                         <select
                           value={form.screensaverMode}
-                          onChange={(e) => setForm({ ...form, screensaverMode: e.target.value as ScreensaverMode })}
+                          onChange={(e) => handleLiveSliderChange("screensaverMode", e.target.value as ScreensaverMode)}
                           className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
                         >
                           <option value="clock">Clock & Date (Normal Screensaver)</option>
@@ -411,46 +529,17 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Inactivity Timeout: {form.screensaverTimeout}s
-                        </label>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-slate-400">Inactivity Timeout</label>
+                          <span className="text-xs font-mono text-indigo-400">{form.screensaverTimeout}s</span>
+                        </div>
                         <input
                           type="range"
                           min="10"
                           max="600"
                           step="10"
                           value={form.screensaverTimeout}
-                          onChange={(e) => setForm({ ...form, screensaverTimeout: Number(e.target.value) })}
-                          className="w-full accent-indigo-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Dimmed Brightness: {Math.round(form.screenBrightnessDimmed * 100)}%
-                        </label>
-                        <input
-                          type="range"
-                          min="0.05"
-                          max="0.8"
-                          step="0.05"
-                          value={form.screenBrightnessDimmed}
-                          onChange={(e) => setForm({ ...form, screenBrightnessDimmed: Number(e.target.value) })}
-                          className="w-full accent-indigo-500"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Normal Brightness: {Math.round(form.screenBrightnessNormal * 100)}%
-                        </label>
-                        <input
-                          type="range"
-                          min="0.3"
-                          max="1.0"
-                          step="0.05"
-                          value={form.screenBrightnessNormal}
-                          onChange={(e) => setForm({ ...form, screenBrightnessNormal: Number(e.target.value) })}
+                          onChange={(e) => handleLiveSliderChange("screensaverTimeout", Number(e.target.value))}
                           className="w-full accent-indigo-500"
                         />
                       </div>
@@ -466,7 +555,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                         <label className="block text-xs text-slate-400 mb-1">Wakeup Method</label>
                         <select
                           value={form.wakeupMethod}
-                          onChange={(e) => setForm({ ...form, wakeupMethod: e.target.value as WakeupMethod })}
+                          onChange={(e) => handleLiveSliderChange("wakeupMethod", e.target.value as WakeupMethod)}
                           className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
                         >
                           <option value="face">Face Detection (Local Camera)</option>
@@ -475,16 +564,19 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs text-slate-400 mb-1">
-                          Motion Sensitivity: {form.motionSensitivity} ({form.motionSensitivity <= 0.04 ? "High" : form.motionSensitivity <= 0.12 ? "Medium" : "Low"})
-                        </label>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-xs text-slate-400">Motion Sensitivity</label>
+                          <span className="text-xs font-mono text-indigo-400">
+                            {form.motionSensitivity} ({form.motionSensitivity <= 0.04 ? "High" : form.motionSensitivity <= 0.12 ? "Medium" : "Low"})
+                          </span>
+                        </div>
                         <input
                           type="range"
                           min="0.02"
                           max="0.25"
                           step="0.01"
                           value={form.motionSensitivity}
-                          onChange={(e) => setForm({ ...form, motionSensitivity: Number(e.target.value) })}
+                          onChange={(e) => handleLiveSliderChange("motionSensitivity", Number(e.target.value))}
                           className="w-full accent-indigo-500"
                         />
                       </div>
@@ -494,7 +586,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                           type="checkbox"
                           id="webui-debug"
                           checked={form.showDebugInfo}
-                          onChange={(e) => setForm({ ...form, showDebugInfo: e.target.checked })}
+                          onChange={(e) => handleLiveSliderChange("showDebugInfo", e.target.checked)}
                           className="w-4 h-4 rounded accent-indigo-500"
                         />
                         <label htmlFor="webui-debug" className="text-xs text-slate-300">
@@ -507,7 +599,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                           type="checkbox"
                           id="webui-refresh"
                           checked={form.enableAutoRefresh}
-                          onChange={(e) => setForm({ ...form, enableAutoRefresh: e.target.checked })}
+                          onChange={(e) => handleLiveSliderChange("enableAutoRefresh", e.target.checked)}
                           className="w-4 h-4 rounded accent-indigo-500"
                         />
                         <label htmlFor="webui-refresh" className="text-xs text-slate-300">
@@ -524,7 +616,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                       className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs flex items-center space-x-2 shadow-lg shadow-indigo-600/20 transition"
                     >
                       <Save className="w-4 h-4" />
-                      <span>Save Changes via WebUI</span>
+                      <span>Save & Persist via WebUI</span>
                     </button>
                   </div>
                 </form>

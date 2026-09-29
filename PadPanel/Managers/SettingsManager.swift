@@ -42,10 +42,12 @@ class SettingsManager: ObservableObject {
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
     
-    // Remote Web Server settings
+    // Remote Web Server & Device Authentication settings
     @Published var enableWebServer: Bool = true
     @Published var webServerPort: Int = 8080
+    @Published var webServerUsername: String = "admin"
     @Published var webServerPassword: String = ""
+    @Published var requireDeviceAuth: Bool = false
     
     // Voice pipeline settings
     @Published var voiceSampleRate: Int = 16000
@@ -83,7 +85,9 @@ class SettingsManager: ObservableObject {
         static let autoRefreshInterval = "autoRefreshInterval"
         static let enableWebServer = "enableWebServer"
         static let webServerPort = "webServerPort"
+        static let webServerUsername = "webServerUsername"
         static let webServerPassword = "webServerPassword"
+        static let requireDeviceAuth = "requireDeviceAuth"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -265,7 +269,9 @@ class SettingsManager: ObservableObject {
             webServerPort = 8080
         }
         
+        webServerUsername = defaults.string(forKey: Keys.webServerUsername) ?? "admin"
         webServerPassword = defaults.string(forKey: Keys.webServerPassword) ?? ""
+        requireDeviceAuth = defaults.bool(forKey: Keys.requireDeviceAuth)
         
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
@@ -348,7 +354,9 @@ class SettingsManager: ObservableObject {
         defaults.set(autoRefreshInterval, forKey: Keys.autoRefreshInterval)
         defaults.set(enableWebServer, forKey: Keys.enableWebServer)
         defaults.set(webServerPort, forKey: Keys.webServerPort)
+        defaults.set(webServerUsername, forKey: Keys.webServerUsername)
         defaults.set(webServerPassword, forKey: Keys.webServerPassword)
+        defaults.set(requireDeviceAuth, forKey: Keys.requireDeviceAuth)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)

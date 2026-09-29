@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   loadSettingsFromStorage,
   saveSettingsToStorage,
@@ -10,6 +10,7 @@ import { useVoiceSatellite } from "./hooks/useVoiceSatellite";
 import { KioskWebView } from "./components/KioskWebView";
 import { ScreensaverView } from "./components/ScreensaverView";
 import { SettingsModal } from "./components/SettingsModal";
+import { DeviceAuthModal } from "./components/DeviceAuthModal";
 import { TripleTapArea } from "./components/TripleTapArea";
 import { KioskControls } from "./components/KioskControls";
 import { WebUIPortalModal } from "./components/WebUIPortalModal";
@@ -18,6 +19,7 @@ import { MQTTInspectorModal } from "./components/MQTTInspectorModal";
 export function App() {
   const [settings, setSettings] = useState<UltraKioskSettings>(() => loadSettingsFromStorage());
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isWebUIPortalOpen, setIsWebUIPortalOpen] = useState<boolean>(false);
   const [isMQTTInspectorOpen, setIsMQTTInspectorOpen] = useState<boolean>(false);
 
@@ -48,17 +50,38 @@ export function App() {
     },
   });
 
+  // Check if settings access needs password authentication
+  const handleRequestOpenSettings = useCallback(() => {
+    const adminPass = settings.deviceAdminPassword || settings.webServerPassword || "";
+    const isAuthRequired = settings.requireDeviceAuth || adminPass.length > 0;
+
+    if (isAuthRequired && adminPass.length > 0) {
+      setIsAuthModalOpen(true);
+    } else {
+      setIsSettingsOpen(true);
+    }
+  }, [settings.deviceAdminPassword, settings.webServerPassword, settings.requireDeviceAuth]);
+
+  // Handle successful device authentication
+  const handleAuthSuccess = () => {
+    setIsAuthModalOpen(false);
+    setIsSettingsOpen(true);
+  };
+
   // Save settings updates
   const handleSaveSettings = (newSettings: UltraKioskSettings) => {
     setSettings(newSettings);
     saveSettingsToStorage(newSettings);
   };
 
-  // Handle single setting update (e.g. from MQTT command tester)
-  const handleUpdateSingleSetting = (key: keyof UltraKioskSettings, value: any) => {
-    const updated = { ...settings, [key]: value };
-    setSettings(updated);
-    saveSettingsToStorage(updated);
+  // Real-time live settings update (e.g. while dragging brightness slider in WebUI or Settings)
+  const handleLiveSettingChange = (key: keyof UltraKioskSettings, value: any) => {
+    setSettings((prev) => {
+      const updated = { ...prev, [key]: value };
+      // Save in background
+      saveSettingsToStorage(updated);
+      return updated;
+    });
   };
 
   // Handle remote action (e.g. from WebUI or MQTT)
@@ -78,7 +101,7 @@ export function App() {
 
   return (
     <div
-      className="relative w-screen h-screen overflow-hidden bg-black text-white select-none transition-all duration-500"
+      className="relative w-screen h-screen overflow-hidden bg-black text-white select-none transition-all duration-300"
       style={{
         filter: `brightness(${kiosk.currentBrightness})`,
       }}
@@ -115,7 +138,7 @@ export function App() {
                 url={urlOrNil}
                 isActive={isActive}
                 reloadCounter={kiosk.reloadCounter}
-                onOpenSettings={() => setIsSettingsOpen(true)}
+                onOpenSettings={handleRequestOpenSettings}
                 onActivity={kiosk.handleUserActivity}
               />
             </div>
@@ -139,7 +162,7 @@ export function App() {
       )}
 
       {/* Top Right Triple-Tap Gesture Area */}
-      <TripleTapArea onTrigger={() => setIsSettingsOpen(true)} />
+      <TripleTapArea onTrigger={handleRequestOpenSettings} />
 
       {/* Floating Kiosk Controls Bar (only shown when clock screensaver is inactive) */}
       {!kiosk.shouldShowClockScreensaver && (
@@ -154,7 +177,7 @@ export function App() {
           inactivitySeconds={kiosk.inactivitySecondsLeft}
           onTriggerScreensaver={kiosk.activateScreensaver}
           onReload={kiosk.reloadAllWebViews}
-          onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenSettings={handleRequestOpenSettings}
           onOpenWebUIPortal={() => setIsWebUIPortalOpen(true)}
           onOpenMQTTInspector={() => setIsMQTTInspectorOpen(true)}
           batteryLevel={kiosk.batteryLevel}
@@ -169,12 +192,22 @@ export function App() {
         />
       )}
 
+      {/* Device Authentication Modal (Kiosk Settings Lock) */}
+      <DeviceAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticated={handleAuthSuccess}
+        expectedUsername={settings.deviceAdminUsername || settings.webServerUsername || "admin"}
+        expectedPassword={settings.deviceAdminPassword || settings.webServerPassword || ""}
+      />
+
       {/* Settings Modal */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
         onSave={handleSaveSettings}
+        onLiveSettingChange={handleLiveSettingChange}
         onTestVoiceSatellite={() => voice.triggerWakeWord("Living Room Light Toggle")}
         onOpenWebUIPortal={() => {
           setIsSettingsOpen(false);
@@ -192,6 +225,7 @@ export function App() {
         onClose={() => setIsWebUIPortalOpen(false)}
         settings={settings}
         onSaveSettings={handleSaveSettings}
+        onLiveSettingChange={handleLiveSettingChange}
         onTriggerAction={handleTriggerAction}
         isScreensaverActive={kiosk.isScreensaverActive}
         batteryLevel={kiosk.batteryLevel}
@@ -204,7 +238,7 @@ export function App() {
         isOpen={isMQTTInspectorOpen}
         onClose={() => setIsMQTTInspectorOpen(false)}
         settings={settings}
-        onUpdateSetting={handleUpdateSingleSetting}
+        onUpdateSetting={handleLiveSettingChange}
         onTriggerAction={handleTriggerAction}
         batteryLevel={kiosk.batteryLevel}
         isCharging={kiosk.isCharging}

@@ -36,8 +36,14 @@ import {
   Bug,
   RefreshCw,
   Sun,
+  Power,
   Eye,
+  EyeOff,
   Globe,
+  Lock,
+  UserCheck,
+  Shield,
+  KeyRound,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -45,6 +51,7 @@ interface SettingsModalProps {
   onClose: () => void;
   settings: UltraKioskSettings;
   onSave: (newSettings: UltraKioskSettings) => void;
+  onLiveSettingChange?: (key: keyof UltraKioskSettings, value: any) => void;
   onTestVoiceSatellite?: () => void;
   onOpenWebUIPortal?: () => void;
   onOpenMQTTInspector?: () => void;
@@ -55,17 +62,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   settings,
   onSave,
+  onLiveSettingChange,
   onTestVoiceSatellite,
   onOpenWebUIPortal,
   onOpenMQTTInspector,
 }) => {
   const [form, setForm] = useState<UltraKioskSettings>({ ...settings });
   const [activeTab, setActiveTab] = useState<
-    "ha" | "mqtt" | "screensaver" | "motion" | "kiosk" | "webserver" | "voice" | "actions"
+    "screensaver" | "motion" | "kiosk" | "auth" | "webserver" | "mqtt" | "ha" | "voice" | "actions"
   >("screensaver");
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
   const [showValidationAlert, setShowValidationAlert] = useState<boolean>(false);
   const [showResetAlert, setShowResetAlert] = useState<boolean>(false);
+  const [showPassword, setShowPassword] = useState<boolean>(false);
 
   // Connection testing states
   const [isTestingHA, setIsTestingHA] = useState<boolean>(false);
@@ -84,10 +93,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setHaTestResult(null);
       setMqttTestResult(null);
       setNewUrlInput("");
+      setShowPassword(false);
     }
   }, [isOpen, settings]);
 
   if (!isOpen) return null;
+
+  const handleBrightnessSlider = (key: "screenBrightnessDimmed" | "screenBrightnessNormal", val: number) => {
+    setForm((prev) => ({ ...prev, [key]: val }));
+    if (onLiveSettingChange) {
+      onLiveSettingChange(key, val);
+    }
+  };
 
   const handleSave = () => {
     const issues = validateSettings(form);
@@ -96,7 +113,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       setShowValidationAlert(true);
       return;
     }
-    onSave(form);
+    // Synchronize authentication aliases
+    const updated: UltraKioskSettings = {
+      ...form,
+      webServerUsername: form.deviceAdminUsername,
+      webServerPassword: form.deviceAdminPassword,
+    };
+    onSave(updated);
     onClose();
   };
 
@@ -208,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Full-screen kiosk, screensaver modes, motion detection, remote WebUI & MQTT
+                Full-screen kiosk, screensaver modes, motion detection, remote WebUI & authentication
               </p>
             </div>
           </div>
@@ -259,6 +282,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               <Layout className="w-4 h-4 shrink-0" />
               <span>Kiosk & Slideshow</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("auth")}
+              className={`flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition text-left shrink-0 ${
+                activeTab === "auth"
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+              }`}
+            >
+              <Shield className="w-4 h-4 shrink-0" />
+              <span>Device Authentication</span>
             </button>
 
             <button
@@ -348,7 +383,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <h3 className="text-base font-bold text-white mb-1">Screensaver & Display Behavior</h3>
                   <p className="text-xs text-slate-400">
-                    Configure what happens when the iPad is idle, dimming levels, and auto-reload.
+                    Configure idle screen modes, live dimming levels, and automatic page reloading.
                   </p>
                 </div>
 
@@ -427,12 +462,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                    <div>
+                    <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
                       <div className="flex justify-between items-center mb-1.5">
-                        <label className="text-xs font-medium text-slate-300">
-                          Dimmed Brightness ({Math.round(form.screenBrightnessDimmed * 100)}%)
+                        <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                          <Power className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>Dimmed Brightness</span>
                         </label>
-                        <span className="text-xs font-mono text-indigo-400">
+                        <span className="text-xs font-mono font-bold text-indigo-400">
                           {Math.round(form.screenBrightnessDimmed * 100)}%
                         </span>
                       </div>
@@ -442,17 +478,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         max="0.8"
                         step="0.05"
                         value={form.screenBrightnessDimmed}
-                        onChange={(e) => setForm({ ...form, screenBrightnessDimmed: Number(e.target.value) })}
+                        onChange={(e) => handleBrightnessSlider("screenBrightnessDimmed", Number(e.target.value))}
                         className="w-full accent-indigo-500"
                       />
+                      <span className="text-[10px] text-slate-500 font-mono">Live on idle / dim</span>
                     </div>
 
-                    <div>
+                    <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800">
                       <div className="flex justify-between items-center mb-1.5">
-                        <label className="text-xs font-medium text-slate-300">
-                          Normal Brightness ({Math.round(form.screenBrightnessNormal * 100)}%)
+                        <label className="text-xs font-medium text-slate-300 flex items-center space-x-1.5">
+                          <Sun className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Normal Brightness</span>
                         </label>
-                        <span className="text-xs font-mono text-indigo-400">
+                        <span className="text-xs font-mono font-bold text-amber-400">
                           {Math.round(form.screenBrightnessNormal * 100)}%
                         </span>
                       </div>
@@ -462,9 +500,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         max="1.0"
                         step="0.05"
                         value={form.screenBrightnessNormal}
-                        onChange={(e) => setForm({ ...form, screenBrightnessNormal: Number(e.target.value) })}
-                        className="w-full accent-indigo-500"
+                        onChange={(e) => handleBrightnessSlider("screenBrightnessNormal", Number(e.target.value))}
+                        className="w-full accent-amber-500"
                       />
+                      <span className="text-[10px] text-slate-500 font-mono">Live on awake</span>
                     </div>
                   </div>
                 </div>
@@ -506,6 +545,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onChange={(e) => setForm({ ...form, autoRefreshInterval: Number(e.target.value) })}
                         className="w-full accent-indigo-500"
                       />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: DEVICE AUTHENTICATION */}
+            {activeTab === "auth" && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-base font-bold text-white mb-1">Device & WebUI Authentication</h3>
+                  <p className="text-xs text-slate-400">
+                    Ubiquitous credentials used to protect on-screen Kiosk Settings (triple-tap) and Remote WebUI HTTP access.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-5">
+                  <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                    <div>
+                      <div className="text-xs font-semibold text-white">Require Password to Open Kiosk Settings</div>
+                      <p className="text-[11px] text-slate-400">
+                        When enabled, triple-tapping the top right corner prompts for credentials before opening settings.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.requireDeviceAuth}
+                        onChange={(e) => setForm({ ...form, requireDeviceAuth: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        Administrator Username
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="admin"
+                        value={form.deviceAdminUsername}
+                        onChange={(e) => setForm({ ...form, deviceAdminUsername: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                      />
+                      <span className="text-[10px] text-slate-500 mt-1 block">Default: admin</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-slate-300 mb-1">
+                        Administrator Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Leave blank for open access"
+                          value={form.deviceAdminPassword}
+                          onChange={(e) => setForm({ ...form, deviceAdminPassword: e.target.value })}
+                          className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-1 block">Used for Kiosk settings lock & WebUI login</span>
+                    </div>
+                  </div>
+
+                  {form.deviceAdminPassword && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-center space-x-2.5">
+                      <Lock className="w-4 h-4 text-emerald-400 shrink-0" />
+                      <span>
+                        Protected: Username <code>{form.deviceAdminUsername || "admin"}</code> and password are active.
+                      </span>
                     </div>
                   )}
                 </div>
@@ -807,7 +926,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   {form.enableWebServer && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-800">
+                    <div className="pt-3 border-t border-slate-800 space-y-4">
                       <div>
                         <label className="block text-xs font-medium text-slate-300 mb-1">
                           Web Server Port
@@ -816,21 +935,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           type="number"
                           value={form.webServerPort}
                           onChange={(e) => setForm({ ...form, webServerPort: Number(e.target.value) })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                          className="w-full max-w-xs px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1">
-                          Access Password (Optional)
-                        </label>
-                        <input
-                          type="password"
-                          placeholder="Leave blank for open local access"
-                          value={form.webServerPassword}
-                          onChange={(e) => setForm({ ...form, webServerPassword: e.target.value })}
-                          className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
-                        />
+                      <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Shield className="w-4 h-4 text-indigo-400" />
+                          <span>
+                            Protected with Admin Username (<code>{form.deviceAdminUsername || "admin"}</code>) & Password.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab("auth")}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 underline"
+                        >
+                          Configure in Authentication &rarr;
+                        </button>
                       </div>
                     </div>
                   )}

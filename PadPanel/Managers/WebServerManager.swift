@@ -240,16 +240,25 @@ final class WebServerManager: ObservableObject {
 
     private func checkAuthentication(request: ParsedRequest) -> Bool {
         let expectedPassword = settings.webServerPassword
+        let expectedUsername = settings.webServerUsername
         if expectedPassword.isEmpty {
             return true
         }
 
-        // Check query param e.g. /?password=xyz or /api/status?password=xyz
+        // Check query param e.g. /?password=xyz or /api/status?password=xyz&username=admin
         if let queryStart = request.path.firstIndex(of: "?") {
             let queryString = String(request.path[request.path.index(after: queryStart)...])
+            var queryPass = ""
+            var queryUser = ""
             for pair in queryString.components(separatedBy: "&") {
                 let kv = pair.components(separatedBy: "=")
-                if kv.count == 2, (kv[0] == "password" || kv[0] == "auth"), kv[1] == expectedPassword {
+                if kv.count == 2 {
+                    if kv[0] == "password" || kv[0] == "auth" { queryPass = kv[1] }
+                    if kv[0] == "username" || kv[0] == "user" { queryUser = kv[1] }
+                }
+            }
+            if queryPass == expectedPassword {
+                if expectedUsername.isEmpty || queryUser.isEmpty || queryUser.lowercased() == expectedUsername.lowercased() {
                     return true
                 }
             }
@@ -261,8 +270,13 @@ final class WebServerManager: ObservableObject {
             if let decodedData = Data(base64Encoded: base64Token),
                let credentials = String(data: decodedData, encoding: .utf8) {
                 let parts = credentials.components(separatedBy: ":")
-                if parts.count >= 2 && parts[1] == expectedPassword {
-                    return true
+                if parts.count >= 2 {
+                    let user = parts[0]
+                    let pass = parts[1]
+                    let isUserMatch = expectedUsername.isEmpty || user.lowercased() == expectedUsername.lowercased()
+                    if isUserMatch && pass == expectedPassword {
+                        return true
+                    }
                 } else if parts.count == 1 && parts[0] == expectedPassword {
                     return true
                 }
