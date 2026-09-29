@@ -20,7 +20,7 @@ export const KioskWebView: React.FC<KioskWebViewProps> = ({
 
   // If no URL or blank, render the authentic welcome screen
   if (!url || url.trim() === "") {
-    return <WelcomeView onOpenSettings={onOpenSettings} />;
+    return <WelcomeView />;
   }
 
   const handleReload = () => {
