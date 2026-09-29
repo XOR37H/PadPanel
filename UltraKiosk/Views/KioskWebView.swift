@@ -4,7 +4,7 @@ import WebKit
 
 struct KioskWebView: UIViewRepresentable {
 
-    let url: String?   // nil → load demo HTML
+    let url: String?   // nil → load welcome HTML
     @EnvironmentObject var kioskManager: KioskManager
 
     @StateObject private var webViewHandler = WebViewHandler()
@@ -62,11 +62,11 @@ struct KioskWebView: UIViewRepresentable {
         if let urlString = url, !urlString.isEmpty, let target = URL(string: urlString) {
             webView.load(URLRequest(url: target))
         } else {
-            loadDemoContent(in: webView)
+            loadWelcomeContent(in: webView)
         }
     }
 
-    private func loadDemoContent(in webView: WKWebView) {
+    private func loadWelcomeContent(in webView: WKWebView) {
         let htmlContent = """
         <!DOCTYPE html>
         <html lang="en">

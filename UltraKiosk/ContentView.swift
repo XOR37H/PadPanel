@@ -80,7 +80,6 @@ struct ContentView: View {
         }
         .onDisappear {
             brightnessManager.restoreOriginalBrightness()
-            webServerManager.stop()
         }
         .onChange(of: showingSettings) { isOpen in
             kioskManager.setSettingsOpen(isOpen)

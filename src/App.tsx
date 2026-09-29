@@ -47,7 +47,7 @@ export function App() {
     saveSettingsToStorage(newSettings);
   };
 
-  // Determine slide slots (at least 1 slide slot, either demo or configured URLs)
+  // Determine slide slots (at least 1 slide slot, either welcome screen or configured URLs)
   const slots: (string | null)[] =
     kiosk.effectiveURLs.length === 0 ? [null] : kiosk.effectiveURLs;
 

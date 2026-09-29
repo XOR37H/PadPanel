@@ -322,6 +322,14 @@ struct SettingsView: View {
                     Text("Error: \(error)")
                         .font(.caption)
                         .foregroundColor(.red)
+                } else {
+                    HStack {
+                        Text("Status")
+                        Spacer()
+                        Text("Starting server...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 
                 HStack {
@@ -392,7 +400,7 @@ struct SettingsView: View {
                 )
             }
             Text(settings.slideshowURLs.isEmpty
-                 ? "No URLs configured — demo page is shown"
+                 ? "No URLs configured — welcome screen is shown"
                  : "\(settings.effectiveURLs.count) URL(s) · \(Int(settings.slideshowInterval)) s interval")
                 .font(.caption)
                 .foregroundColor(.secondary)

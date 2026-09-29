@@ -663,8 +663,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                 <p className="text-xs text-slate-400">
                   Configure up to 5 dashboard URLs. If multiple URLs are entered, UltraKiosk cycles
-                  between them with smooth transitions. If empty, the built-in Home Assistant demo
-                  page is displayed.
+                  between them with smooth transitions. If empty, the welcome screen is displayed.
                 </p>
 
                 <div className="space-y-3">
@@ -711,7 +710,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   {form.slideshowURLs.length === 0 && (
                     <div className="p-4 rounded-xl border border-dashed border-white/20 text-center text-xs text-slate-400">
-                      No URLs added. Built-in interactive Home Assistant demo is active.
+                      No URLs added. The UltraKiosk welcome screen is active.
                     </div>
                   )}
                 </div>

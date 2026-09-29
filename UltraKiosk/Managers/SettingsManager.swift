@@ -309,7 +309,7 @@ class SettingsManager: ObservableObject {
             // Migrate an explicitly saved single URL to the new list format
             slideshowURLs = [storedURL]
         } else {
-            // Fresh install or empty kioskURL → demo mode
+            // Fresh install or empty kioskURL → welcome screen mode
             slideshowURLs = []
         }
     }
@@ -539,7 +539,7 @@ class SettingsManager: ObservableObject {
     // MARK: - Computed Properties
 
     /// Returns the non-empty URLs configured for the slideshow.
-    /// An empty array indicates demo mode.
+    /// An empty array indicates welcome screen mode.
     var effectiveURLs: [String] {
         slideshowURLs.filter { !$0.isEmpty }
     }

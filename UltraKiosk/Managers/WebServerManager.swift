@@ -16,6 +16,7 @@ final class WebServerManager: ObservableObject {
     @Published var lastError: String? = nil
 
     private var listener: NWListener?
+    private var activePort: Int?
     private let queue = DispatchQueue(label: "ultrakiosk.webserver.queue", qos: .userInitiated)
     private var cancellables = Set<AnyCancellable>()
     private let settings = SettingsManager.shared
@@ -29,14 +30,20 @@ final class WebServerManager: ObservableObject {
     }
 
     private func setupObservers() {
-        // Watch enableWebServer and webServerPort
+        // Watch enableWebServer and webServerPort, ignoring identical consecutive values
         Publishers.CombineLatest(settings.$enableWebServer, settings.$webServerPort)
+            .removeDuplicates { prev, curr in
+                return prev.0 == curr.0 && prev.1 == curr.1
+            }
             .receive(on: RunLoop.main)
             .sink { [weak self] enabled, port in
+                guard let self = self else { return }
                 if enabled {
-                    self?.restart(port: port)
+                    if !self.isRunning || self.activePort != port {
+                        self.restart(port: port)
+                    }
                 } else {
-                    self?.stop()
+                    self.stop()
                 }
             }
             .store(in: &cancellables)
@@ -44,21 +51,31 @@ final class WebServerManager: ObservableObject {
 
     func start() {
         guard settings.enableWebServer else { return }
+        if isRunning && activePort == settings.webServerPort {
+            return // Already running on desired port
+        }
         restart(port: settings.webServerPort)
     }
 
     func restart(port: Int) {
         stop()
         guard settings.enableWebServer else { return }
-        startListener(port: port)
+        // Brief asynchronous deferral to allow Darwin network stack to release the socket
+        queue.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.startListener(port: port)
+        }
     }
 
     func stop() {
+        listener?.stateUpdateHandler = nil
+        listener?.newConnectionHandler = nil
         listener?.cancel()
         listener = nil
+        activePort = nil
         DispatchQueue.main.async {
             self.isRunning = false
             self.serverURL = ""
+            self.lastError = nil
         }
     }
 
@@ -68,30 +85,37 @@ final class WebServerManager: ObservableObject {
             DispatchQueue.main.async {
                 self.lastError = "Invalid port: \(port)"
                 self.isRunning = false
+                self.activePort = nil
             }
             return
         }
 
         do {
             let parameters = NWParameters.tcp
+            parameters.allowLocalEndpointReuse = true
+            parameters.acceptLocalOnly = false
+
             let newListener = try NWListener(using: parameters, on: endpointPort)
-            
+
             newListener.stateUpdateHandler = { [weak self] state in
                 guard let self = self else { return }
                 DispatchQueue.main.async {
                     switch state {
                     case .ready:
                         self.isRunning = true
+                        self.activePort = Int(validPort)
                         self.lastError = nil
                         let ip = self.getWiFiAddress() ?? "localhost"
                         self.serverURL = "http://\(ip):\(validPort)"
                         AppLogger.app.info("Remote Web Server listening on \(self.serverURL)")
                     case .failed(let error):
                         self.isRunning = false
+                        self.activePort = nil
                         self.lastError = error.localizedDescription
                         AppLogger.app.error("Remote Web Server failed: \(error.localizedDescription)")
                     case .cancelled:
                         self.isRunning = false
+                        self.activePort = nil
                     default:
                         break
                     }
@@ -109,6 +133,7 @@ final class WebServerManager: ObservableObject {
             DispatchQueue.main.async {
                 self.lastError = error.localizedDescription
                 self.isRunning = false
+                self.activePort = nil
             }
             AppLogger.app.error("Could not start Web Server: \(error.localizedDescription)")
         }
@@ -118,11 +143,11 @@ final class WebServerManager: ObservableObject {
 
     private func handleConnection(_ connection: NWConnection) {
         connection.start(queue: queue)
-        receiveHTTPRequest(connection: connection)
+        receiveHTTPRequest(connection: connection, accumulatedData: Data())
     }
 
-    private func receiveHTTPRequest(connection: NWConnection) {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, _, error in
+    private func receiveHTTPRequest(connection: NWConnection, accumulatedData: Data) {
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             guard let self = self else {
                 connection.cancel()
                 return
@@ -134,12 +159,45 @@ final class WebServerManager: ObservableObject {
                 return
             }
 
-            guard let data = data, let requestString = String(data: data, encoding: .utf8) else {
-                self.sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "text/plain", body: "Invalid HTTP request")
-                return
+            var currentData = accumulatedData
+            if let data = data {
+                currentData.append(data)
             }
 
-            self.processHTTPRequest(requestString: requestString, rawData: data, connection: connection)
+            // Check if we have received complete HTTP headers (\r\n\r\n)
+            let headerEndMarker = Data([0x0D, 0x0A, 0x0D, 0x0A])
+            if let headerEndRange = currentData.range(of: headerEndMarker) {
+                let headerData = currentData.subdata(in: 0..<headerEndRange.lowerBound)
+                if let headerString = String(data: headerData, encoding: .utf8) {
+                    var expectedContentLength = 0
+                    for line in headerString.components(separatedBy: "\r\n") {
+                        let lower = line.lowercased()
+                        if lower.hasPrefix("content-length:") {
+                            let parts = line.components(separatedBy: ":")
+                            if parts.count >= 2, let len = Int(parts[1].trimmingCharacters(in: .whitespaces)) {
+                                expectedContentLength = len
+                            }
+                        }
+                    }
+                    let bodyReceivedLength = currentData.count - headerEndRange.upperBound
+                    if bodyReceivedLength < expectedContentLength && !isComplete {
+                        // More body data needed
+                        self.receiveHTTPRequest(connection: connection, accumulatedData: currentData)
+                        return
+                    }
+                }
+
+                if let requestString = String(data: currentData, encoding: .utf8) {
+                    self.processHTTPRequest(requestString: requestString, rawData: currentData, connection: connection)
+                } else {
+                    self.sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "text/plain", body: "Invalid HTTP request")
+                }
+            } else if !isComplete {
+                // More header data needed
+                self.receiveHTTPRequest(connection: connection, accumulatedData: currentData)
+            } else {
+                connection.cancel()
+            }
         }
     }
 
@@ -376,8 +434,13 @@ final class WebServerManager: ObservableObject {
             settings.webServerPassword = pass
         }
         if let port = dict["webServerPort"] {
-            if let i = port as? Int { settings.webServerPort = i }
-            else if let s = port as? String, let i = Int(s) { settings.webServerPort = i }
+            let newPort: Int?
+            if let i = port as? Int { newPort = i }
+            else if let s = port as? String, let i = Int(s) { newPort = i }
+            else { newPort = nil }
+            if let p = newPort, p != settings.webServerPort {
+                settings.webServerPort = p
+            }
         }
     }
 
@@ -397,7 +460,7 @@ final class WebServerManager: ObservableObject {
         var fullData = headerString.data(using: .utf8) ?? Data()
         fullData.append(bodyData)
 
-        connection.send(content: fullData, completion: .contentProcessed { _ in
+        connection.send(content: fullData, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in
             connection.cancel()
         })
     }

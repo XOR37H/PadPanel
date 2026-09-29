@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { HomeAssistantDemoView } from "./HomeAssistantDemoView";
+import { WelcomeView } from "./WelcomeView";
 import { ExternalLink, RefreshCw, AlertTriangle } from "lucide-react";
 
 interface KioskWebViewProps {
@@ -18,9 +18,9 @@ export const KioskWebView: React.FC<KioskWebViewProps> = ({
   const [iframeError, setIframeError] = useState<boolean>(false);
   const [reloadKey, setReloadKey] = useState<number>(0);
 
-  // If no URL or blank, render the built-in Home Assistant demo dashboard
+  // If no URL or blank, render the authentic welcome screen
   if (!url || url.trim() === "") {
-    return <HomeAssistantDemoView onOpenSettings={onOpenSettings} />;
+    return <WelcomeView onOpenSettings={onOpenSettings} />;
   }
 
   const handleReload = () => {
