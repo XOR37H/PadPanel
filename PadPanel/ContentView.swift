@@ -58,12 +58,24 @@ struct ContentView: View {
             }
 
             // Clock Screensaver overlay
-            if kioskManager.isScreensaverActive && (settings.screensaverMode == "clock" || settings.screensaverMode.isEmpty) {
+            if kioskManager.isScreensaverActive && !kioskManager.isDeepSleepActive && (settings.screensaverMode == "clock" || settings.screensaverMode.isEmpty) {
                 ScreensaverView()
                     .environmentObject(kioskManager)
                     .environmentObject(faceDetectionManager)
                     .environmentObject(settings)
                     .transition(.opacity)
+            }
+
+            // Deep Sleep Overlay: Absolute pitch-black full screen, minimal hardware power
+            if kioskManager.isDeepSleepActive {
+                Color.black
+                    .ignoresSafeArea()
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        kioskManager.handleUserActivity()
+                    }
+                    .transition(.opacity)
+                    .zIndex(85)
             }
 
             // Splash Screen Overlay (4-second launch splash; remains indefinitely if no dashboard URL is set)
@@ -114,9 +126,14 @@ struct ContentView: View {
             kioskManager.setSettingsOpen(isOpen)
         }
         .onReceive(kioskManager.$isScreensaverActive) { active in
-            if active && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
+            if active && !kioskManager.isDeepSleepActive && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
                 faceDetectionManager.startDetection()
-            } else if !active && (settings.screensaverMode == "dimming" || settings.screensaverMode == "urls") {
+            } else if !active {
+                faceDetectionManager.stopDetection()
+            }
+        }
+        .onReceive(kioskManager.$isDeepSleepActive) { inDeepSleep in
+            if inDeepSleep {
                 faceDetectionManager.stopDetection()
             }
         }
@@ -154,6 +171,9 @@ struct ContentView: View {
     /// In "urls" or "dimming" mode during screensaver, active slide stays visible.
     /// In "clock" mode, webview opacity is 0.0 beneath the black screensaver.
     private func webViewOpacity(for index: Int) -> Double {
+        if kioskManager.isDeepSleepActive {
+            return 0.0
+        }
         if kioskManager.isScreensaverActive {
             if settings.screensaverMode == "urls" || settings.screensaverMode == "dimming" {
                 return index == slideshowManager.currentIndex ? 1.0 : 0.0

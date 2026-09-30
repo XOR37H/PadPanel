@@ -77,6 +77,11 @@ struct ScreensaverView: View {
         .onReceive(timer) { input in
             currentTime = input
         }
+        .onReceive(kioskManager.$isDeepSleepActive) { inDeepSleep in
+            if inDeepSleep {
+                faceDetectionManager.stopDetection()
+            }
+        }
         .onTapGesture {
             kioskManager.handleUserActivity()
         }

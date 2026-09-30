@@ -17,6 +17,7 @@ struct SettingsView: View {
             Form {
                 mainDashboardSection
                 screensaverSection
+                deepSleepSection
                 homeAssistantSection
                 mqttSection
                 deviceAuthSection
@@ -419,6 +420,28 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Screen brightness (normal): \(Int(settings.screenBrightnessNormal * 100))%")
                 Slider(value: $settings.screenBrightnessNormal, in: 0.3...1.0, step: 0.05)
+            }
+        }
+    }
+    
+    private var deepSleepSection: some View {
+        Section(
+            header: Text("Deep Sleep"),
+            footer: Text("Deep sleep powers off the camera sensor, turns the screen to minimum brightness, and halts background rendering after a period of no activity (no motion, face detection, or touch). Tap the screen to wake.")
+        ) {
+            Toggle("Enable Deep Sleep", isOn: $settings.enableDeepSleep.animation())
+            
+            if settings.enableDeepSleep {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("No activity timeout: \(settings.deepSleepTimeoutFormatted)")
+                    Slider(value: $settings.deepSleepTimeout, in: 1800...14400, step: 900) {
+                        Text("No Activity Timeout")
+                    } minimumValueLabel: {
+                        Text("30m")
+                    } maximumValueLabel: {
+                        Text("4h")
+                    }
+                }
             }
         }
     }

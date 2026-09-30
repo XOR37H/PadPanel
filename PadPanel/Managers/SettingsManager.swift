@@ -32,6 +32,10 @@ class SettingsManager: ObservableObject {
     @Published var screenBrightnessDimmed: Double = 0.2
     @Published var screenBrightnessNormal: Double = 0.7 // Changed from 1.0 to more reasonable 70%
     
+    // Deep Sleep (App-controlled power saving)
+    @Published var enableDeepSleep: Bool = false
+    @Published var deepSleepTimeout: Double = 1800.0 // 30 minutes default (1800s to 14400s / 4h)
+    
     @Published var enableVoiceActivation: Bool = false
     @Published var kioskURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
     @Published var screensaverMode: String = "off" // "clock", "dimming", "urls", "off"
@@ -80,6 +84,8 @@ class SettingsManager: ObservableObject {
         static let screensaverMode = "screensaverMode"
         static let screenBrightnessDimmed = "screenBrightnessDimmed"
         static let screenBrightnessNormal = "screenBrightnessNormal"
+        static let enableDeepSleep = "enableDeepSleep"
+        static let deepSleepTimeout = "deepSleepTimeout"
         static let enableVoiceActivation = "enableVoiceActivation"
         static let kioskURL = "kioskURL"
         static let faceDetectionInterval = "faceDetectionInterval"
@@ -140,6 +146,19 @@ class SettingsManager: ObservableObject {
         let minutes = Int(screensaverTimeout / 60)
         let seconds = Int(screensaverTimeout.truncatingRemainder(dividingBy: 60))
         return "\(minutes):\(String(format: "%02d", seconds))"
+    }
+    
+    var deepSleepTimeoutFormatted: String {
+        let totalMinutes = Int(deepSleepTimeout / 60)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        if hours > 0 && minutes > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if hours > 0 {
+            return "\(hours)h"
+        } else {
+            return "\(minutes)m"
+        }
     }
     
     var batteryUpdateIntervalFormatted: String {
@@ -237,6 +256,18 @@ class SettingsManager: ObservableObject {
             screenBrightnessNormal = brightness
         } else {
             screenBrightnessNormal = 0.7 // Default to 70%
+        }
+        
+        if defaults.object(forKey: Keys.enableDeepSleep) != nil {
+            enableDeepSleep = defaults.bool(forKey: Keys.enableDeepSleep)
+        } else {
+            enableDeepSleep = false
+        }
+        
+        if let dst = defaults.object(forKey: Keys.deepSleepTimeout) as? Double {
+            deepSleepTimeout = dst
+        } else {
+            deepSleepTimeout = 1800.0 // 30 minutes
         }
         
         // enableVoiceActivation defaults to false
@@ -380,6 +411,8 @@ class SettingsManager: ObservableObject {
         defaults.set(screensaverMode, forKey: Keys.screensaverMode)
         defaults.set(screenBrightnessDimmed, forKey: Keys.screenBrightnessDimmed)
         defaults.set(screenBrightnessNormal, forKey: Keys.screenBrightnessNormal)
+        defaults.set(enableDeepSleep, forKey: Keys.enableDeepSleep)
+        defaults.set(deepSleepTimeout, forKey: Keys.deepSleepTimeout)
         defaults.set(enableVoiceActivation, forKey: Keys.enableVoiceActivation)
         defaults.set(kioskURL, forKey: Keys.kioskURL)
         defaults.set(faceDetectionInterval, forKey: Keys.faceDetectionInterval)
@@ -479,6 +512,8 @@ class SettingsManager: ObservableObject {
             "screensaverMode": screensaverMode,
             "screenBrightnessDimmed": screenBrightnessDimmed,
             "screenBrightnessNormal": screenBrightnessNormal,
+            "enableDeepSleep": enableDeepSleep,
+            "deepSleepTimeout": deepSleepTimeout,
             "enableVoiceActivation": enableVoiceActivation,
             "faceDetectionInterval": faceDetectionInterval,
             "wakeupMethod": wakeupMethod,
@@ -548,6 +583,14 @@ class SettingsManager: ObservableObject {
         if let normal = settings["screenBrightnessNormal"] {
             if let d = normal as? Double { screenBrightnessNormal = d }
             else if let s = normal as? String, let d = Double(s) { screenBrightnessNormal = d }
+        }
+        if let eds = settings["enableDeepSleep"] {
+            if let b = eds as? Bool { enableDeepSleep = b }
+            else if let s = eds as? String { enableDeepSleep = (s == "true" || s == "1" || s == "on") }
+        }
+        if let dst = settings["deepSleepTimeout"] {
+            if let d = dst as? Double { deepSleepTimeout = d }
+            else if let s = dst as? String, let d = Double(s) { deepSleepTimeout = d }
         }
         if let voice = settings["enableVoiceActivation"] {
             if let b = voice as? Bool { enableVoiceActivation = b }
@@ -661,6 +704,8 @@ class SettingsManager: ObservableObject {
         screensaverTimeout = \(screensaverTimeout)
         screenBrightnessNormal = \(screenBrightnessNormal)
         screenBrightnessDimmed = \(screenBrightnessDimmed)
+        enableDeepSleep = \(enableDeepSleep)
+        deepSleepTimeout = \(deepSleepTimeout)
         wakeupMethod = \(wakeupMethod)
         motionSensitivity = \(motionSensitivity)
         faceDetectionInterval = \(faceDetectionInterval)
@@ -769,6 +814,8 @@ class SettingsManager: ObservableObject {
         screensaverMode = "off"
         screenBrightnessDimmed = 0.2
         screenBrightnessNormal = 0.7
+        enableDeepSleep = false
+        deepSleepTimeout = 1800.0
         enableVoiceActivation = false
         kioskURL = ""
         faceDetectionInterval = 1.0

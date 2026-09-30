@@ -84,9 +84,11 @@ final class SlideshowManager: ObservableObject {
         guard let s = settings,
               s.effectiveURLs.count > 1 else { return }
         timer?.invalidate()
-        timer = Timer.scheduledTimer(withTimeInterval: s.slideshowInterval, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: s.slideshowInterval, repeats: true) { [weak self] _ in
             self?.advance()
         }
+        newTimer.tolerance = 1.0
+        timer = newTimer
     }
 
     private func pauseTimer() {

@@ -14,7 +14,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
     private var captureSession: AVCaptureSession?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let videoOutput = AVCaptureVideoDataOutput()
-    private let sessionQueue = DispatchQueue(label: "camera.session.queue", qos: .userInitiated)
+    private let sessionQueue = DispatchQueue(label: "camera.session.queue", qos: .utility)
     
     // Frame rate limiting properties for face detection
     private var lastDetectionTime: CFTimeInterval = 0

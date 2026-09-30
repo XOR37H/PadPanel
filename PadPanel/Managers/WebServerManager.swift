@@ -569,6 +569,14 @@ final class WebServerManager: ObservableObject {
             if let d = dim as? Double { settings.screenBrightnessDimmed = d }
             else if let s = dim as? String, let d = Double(s) { settings.screenBrightnessDimmed = d }
         }
+        if let eds = dict["enableDeepSleep"] {
+            if let b = eds as? Bool { settings.enableDeepSleep = b }
+            else if let s = eds as? String { settings.enableDeepSleep = (s == "true" || s == "1" || s == "on") }
+        }
+        if let dst = dict["deepSleepTimeout"] {
+            if let d = dst as? Double { settings.deepSleepTimeout = d }
+            else if let s = dst as? String, let d = Double(s) { settings.deepSleepTimeout = d }
+        }
         if let norm = dict["screenBrightnessNormal"] {
             if let d = norm as? Double { settings.screenBrightnessNormal = d }
             else if let s = norm as? String, let d = Double(s) { settings.screenBrightnessNormal = d }
@@ -1111,6 +1119,25 @@ final class WebServerManager: ObservableObject {
                                 <label id="lblDimmed">Dimmed Brightness (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
                                 <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">bedtime</span> Deep Sleep (Power Saving)
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="enableDeepSleep" \(settings.enableDeepSleep ? "checked" : "")>
+                                <span>Enable Deep Sleep</span>
+                            </label>
+                            <div class="hint">Completely turns off the camera sensor, blacks out the screen to minimum brightness, and halts background rendering after extended inactivity to maximize battery life. Tap the screen to wake instantly.</div>
+                        </div>
+                        <div class="form-group" style="margin-top: 14px;">
+                            <label>No Activity Timeout (seconds: 1800s = 30m, 3600s = 1h, 14400s = 4h)</label>
+                            <input type="number" name="deepSleepTimeout" value="\(Int(settings.deepSleepTimeout))" min="1800" max="14400" step="300">
                         </div>
                     </div>
 

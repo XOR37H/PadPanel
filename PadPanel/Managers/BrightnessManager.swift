@@ -8,6 +8,7 @@ protocol BrightnessControlling {
     func restoreOriginalBrightness()
     func dimScreen()
     func setNormalBrightness()
+    func setMinimumBrightness()
 }
 
 /// Manages screen brightness with restoration of original user settings
@@ -49,5 +50,11 @@ class BrightnessManager: ObservableObject, BrightnessControlling {
     func setNormalBrightness() {
         UIScreen.main.brightness = CGFloat(settings.screenBrightnessNormal)
         AppLogger.app.debug("Set brightness to normal: \(self.settings.screenBrightnessNormal)")
+    }
+    
+    /// Set screen to minimum hardware brightness (0.0 for Deep Sleep)
+    func setMinimumBrightness() {
+        UIScreen.main.brightness = 0.0
+        AppLogger.app.debug("Set screen to minimum brightness (0.0) for Deep Sleep")
     }
 }
