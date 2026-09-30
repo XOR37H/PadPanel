@@ -4,8 +4,7 @@ PadPanel is a lightweight iOS app built for legacy devices such as the iPad Air2
 This is work progress, but PadPanel currently offers a veriaty of features that 
 are well suited to home automation. 
 
-<img src="https://github.com/XOR37H/PadPanel/blob/main/.github/assets/screenshots/screenshot_splash.jpg" alt="Splash" width="40%">
-<img src="https://github.com/XOR37H/PadPanel/blob/main/.github/assets/screenshots/screenshot_webui.jpg" alt="Splash" width="40%">
+<img src="https://github.com/XOR37H/PadPanel/blob/main/.github/assets/screenshots/screenshot_splash.jpg" alt="Splash" width="40%"><img src="https://github.com/XOR37H/PadPanel/blob/main/.github/assets/screenshots/screenshot_webui.jpg" alt="Splash" width="40%">
 
 ## Original Features
 
