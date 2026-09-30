@@ -40,10 +40,8 @@ struct SplashScreenView: View {
                             )
                             .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 10)
                         
-                        // Vector Tablet / Display Icon in clean white
-                        Image(systemName: "ipad.landscape")
-                            .font(.system(size: 64, weight: .light))
-                            .foregroundColor(.white)
+                        // Custom PadPanel Logo in clean white
+                        PadPanelLogoView(size: CGSize(width: 105, height: 65), tintColor: .white)
                             .scaleEffect(pulseAnimation ? 1.03 : 0.98)
                             .animation(
                                 Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
@@ -71,7 +69,7 @@ struct SplashScreenView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.white.opacity(0.5))
                             
-                            Text("http://\(hostIP):\(settings.webServerPort)")
+                            Text("http://\(hostIP):\(String(settings.webServerPort))")
                                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                                 .foregroundColor(Color(red: 0.35, green: 0.65, blue: 1.0))
                         }
