@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import WebKit
 
@@ -7,12 +8,16 @@ struct LocalSettingsSheetView: View {
     @ObservedObject var settings = SettingsManager.shared
     @Binding var isPresented: Bool
     
+    init(isPresented: Binding<Bool>) {
+        self._isPresented = isPresented
+    }
+    
     var body: some View {
         NavigationView {
             LocalSettingsWebView(
                 port: settings.webServerPort,
                 onClose: {
-                    isPresented = false
+                    self.isPresented = false
                 }
             )
             .navigationTitle("PadPanel Settings")
@@ -20,7 +25,7 @@ struct LocalSettingsSheetView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        isPresented = false
+                        self.isPresented = false
                     }
                     .font(.body.weight(.semibold))
                 }
@@ -70,6 +75,7 @@ struct LocalSettingsWebView: UIViewRepresentable {
 
         init(onClose: (() -> Void)?) {
             self.onClose = onClose
+            super.init()
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {

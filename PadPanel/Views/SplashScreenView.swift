@@ -1,4 +1,6 @@
 import SwiftUI
+import Combine
+import Foundation
 
 struct SplashScreenView: View {
     @ObservedObject var settings: SettingsManager
@@ -148,12 +150,12 @@ struct SplashScreenView: View {
             pulseAnimation = true
         }
         .onReceive(timer) { _ in
-            guard !isPermanent && timerActive && !isCountdownPaused else { return }
-            if remainingSeconds > 1 {
-                remainingSeconds -= 1
+            guard !self.isPermanent && self.timerActive && !self.isCountdownPaused else { return }
+            if self.remainingSeconds > 1 {
+                self.remainingSeconds -= 1
             } else {
-                timerActive = false
-                onDismiss?()
+                self.timerActive = false
+                self.onDismiss?()
             }
         }
         .alert(isPresented: $showingResetAlert) {
@@ -161,23 +163,23 @@ struct SplashScreenView: View {
                 title: Text("Reset WebUI Password?"),
                 message: Text("This will clear the WebUI password and set access back to open/default."),
                 primaryButton: .destructive(Text("Reset Password")) {
-                    settings.webServerPassword = ""
-                    settings.requireDeviceAuth = false
-                    settings.saveSettings()
+                    self.settings.webServerPassword = ""
+                    self.settings.requireDeviceAuth = false
+                    self.settings.saveSettings()
                     WebServerManager.shared.clearAllSessions()
-                    resetSuccessNotice = true
-                    logoTapCount = 0
+                    self.resetSuccessNotice = true
+                    self.logoTapCount = 0
                     
                     // Allow 1.5 seconds for user to see confirmation before entering dashboard
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        onDismiss?()
+                        self.onDismiss?()
                     }
                 },
                 secondaryButton: .cancel(Text("Cancel")) {
-                    logoTapCount = 0
-                    isCountdownPaused = false
-                    if remainingSeconds <= 1 {
-                        onDismiss?()
+                    self.logoTapCount = 0
+                    self.isCountdownPaused = false
+                    if self.remainingSeconds <= 1 {
+                        self.onDismiss?()
                     }
                 }
             )

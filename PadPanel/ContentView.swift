@@ -84,7 +84,7 @@ struct ContentView: View {
                     isPermanent: settings.mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                     onDismiss: {
                         withAnimation(.easeInOut(duration: 0.8)) {
-                            splashTimerElapsed = true
+                            self.splashTimerElapsed = true
                         }
                     }
                 )

@@ -437,9 +437,7 @@ final class WebServerManager: ObservableObject {
 
         if isUserValid && isPassValid {
             let sessionToken = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-            queue.async {
-                self.activeSessions.insert(sessionToken)
-            }
+            self.activeSessions.insert(sessionToken)
             let cookieHeader = "padpanel_session=\(sessionToken); Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000"
             let headers = [
                 "Set-Cookie": cookieHeader,
@@ -458,9 +456,7 @@ final class WebServerManager: ObservableObject {
                 let parts = cookie.trimmingCharacters(in: .whitespaces).components(separatedBy: "=")
                 if parts.count >= 2 && parts[0] == "padpanel_session" {
                     let sessionVal = parts[1]
-                    queue.async {
-                        self.activeSessions.remove(sessionVal)
-                    }
+                    self.activeSessions.remove(sessionVal)
                 }
             }
         }
