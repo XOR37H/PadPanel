@@ -14,7 +14,6 @@ struct ContentView: View {
     @StateObject private var webServerManager = WebServerManager.shared
 
     @State private var showingSettings = false
-    @State private var showingAuthPrompt = false
     @State private var splashTimerElapsed = false
 
     private var isSplashVisible: Bool {
@@ -78,11 +77,16 @@ struct ContentView: View {
                     .zIndex(85)
             }
 
-            // Splash Screen Overlay (4-second launch splash; remains indefinitely if no dashboard URL is set)
+            // Splash Screen Overlay (10-second launch splash; remains indefinitely if no dashboard URL is set)
             if isSplashVisible {
                 SplashScreenView(
                     settings: settings,
-                    isPermanent: settings.mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    isPermanent: settings.mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                    onDismiss: {
+                        withAnimation(.easeInOut(duration: 0.8)) {
+                            splashTimerElapsed = true
+                        }
+                    }
                 )
                 .transition(.opacity)
                 .zIndex(90)
@@ -111,13 +115,6 @@ struct ContentView: View {
             setupNotifications()
             slideshowManager.configure(settings: settings, kioskManager: kioskManager)
             slideshowManager.start()
-
-            // 4-second minimum splash timer
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
-                withAnimation(.easeInOut(duration: 0.8)) {
-                    splashTimerElapsed = true
-                }
-            }
         }
         .onDisappear {
             brightnessManager.restoreOriginalBrightness()
@@ -148,23 +145,15 @@ struct ContentView: View {
         .onReceive(settings.$faceDetectionInterval) { newInterval in
             faceDetectionManager.reinitialize(withInterval: newInterval)
         }
-        .sheet(isPresented: $showingAuthPrompt) {
-            DeviceAuthPromptView(isPresented: $showingAuthPrompt, onAuthenticated: $showingSettings)
-        }
         .sheet(isPresented: $showingSettings) {
-            SettingsView()
+            LocalSettingsSheetView(isPresented: $showingSettings)
         }
         .statusBarHidden(true)
     }
 
     private func handleSettingsRequest() {
-        let isAuthRequired = settings.requireDeviceAuth || !settings.webServerPassword.isEmpty
-        if isAuthRequired && !settings.webServerPassword.isEmpty {
-            showingAuthPrompt = true
-        } else {
-            kioskManager.setSettingsOpen(true)
-            showingSettings = true
-        }
+        kioskManager.setSettingsOpen(true)
+        showingSettings = true
     }
 
     /// Returns 1.0 for the currently active slide, 0.0 for all others.
@@ -291,97 +280,6 @@ struct ContentView: View {
             // Completion is called on the main thread by WKWebsiteDataStore.
             AppLogger.app.info("WKWebView cache cleared — triggering reload of all slides")
             NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
-        }
-    }
-}
-
-// MARK: - Device Authentication Prompt for Kiosk Lock
-struct DeviceAuthPromptView: View {
-    @ObservedObject var settings = SettingsManager.shared
-    @Binding var isPresented: Bool
-    @Binding var onAuthenticated: Bool
-    
-    @State private var username: String = ""
-    @State private var password: String = ""
-    @State private var errorMessage: String? = nil
-    
-    var body: some View {
-        NavigationView {
-            Form {
-                Section(
-                    header: Text("Kiosk Settings Locked"),
-                    footer: Text("Enter the administrator credentials configured in PadPanel to unlock settings.")
-                ) {
-                    HStack {
-                        Text("Username")
-                        Spacer()
-                        TextField("admin", text: $username)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .frame(maxWidth: 180)
-                    }
-                    
-                    HStack {
-                        Text("Password")
-                        Spacer()
-                        SecureField("Password", text: $password)
-                            .textFieldStyle(RoundedBorderTextFieldStyle())
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
-                            .frame(maxWidth: 180)
-                    }
-                }
-                
-                if let error = errorMessage {
-                    Section {
-                        Text(error)
-                            .foregroundColor(.red)
-                            .font(.caption)
-                    }
-                }
-                
-                Section {
-                    Button(action: verifyAndUnlock) {
-                        HStack {
-                            Spacer()
-                            Text("Unlock Settings")
-                                .fontWeight(.semibold)
-                            Spacer()
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Device Authentication")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
-                }
-            }
-            .onAppear {
-                username = settings.webServerUsername.isEmpty ? "admin" : settings.webServerUsername
-                password = ""
-                errorMessage = nil
-            }
-        }
-    }
-    
-    private func verifyAndUnlock() {
-        let expectedUser = settings.webServerUsername.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let expectedPass = settings.webServerPassword
-        let inputUser = username.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        
-        let userValid = expectedUser.isEmpty || inputUser == expectedUser || (expectedUser == "admin" && inputUser.isEmpty)
-        let passValid = password == expectedPass
-        
-        if userValid && passValid {
-            isPresented = false
-            onAuthenticated = true
-        } else {
-            errorMessage = "Invalid username or password. Access denied."
         }
     }
 }
