@@ -10,7 +10,7 @@ enum LogCategory: String {
 }
 
 struct AppLogger {
-    static let subsystem = "de.mirkosertic.UltraKiosk"
+    static let subsystem = "uk.rjtech.padpanel"
     
     #if DEBUG
     // In debug builds, enable all logging levels

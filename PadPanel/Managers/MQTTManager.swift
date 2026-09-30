@@ -580,7 +580,7 @@ extension Notification.Name {
     static let mqttScreensaverActivated = Notification.Name("MQTTScreensaverActivated")
     static let mqttConnected = Notification.Name("MQTTConnected")
     static let mqttDisconnected = Notification.Name("MQTTDisconnected")
-    static let remoteWakeup = Notification.Name("UltraKioskRemoteWakeup")
+    static let remoteWakeup = Notification.Name("PadPanelRemoteWakeup")
 }
 
 // MARK: - Settings over MQTT (Discovery, Commands, States)

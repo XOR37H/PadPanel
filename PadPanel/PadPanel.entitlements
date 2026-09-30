@@ -4,7 +4,7 @@
 <dict>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.de.mirkosertic.UltraKiosk.settings</string>
+		<string>group.uk.rjtech.padpanel.settings</string>
 	</array>
 </dict>
 </plist>

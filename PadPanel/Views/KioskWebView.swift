@@ -75,7 +75,7 @@ struct KioskWebView: UIViewRepresentable {
             <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
             <meta name="apple-mobile-web-app-capable" content="yes">
             <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
-            <title>UltraKiosk</title>
+            <title>PadPanel</title>
             <style>
                 * {
                     margin: 0;
