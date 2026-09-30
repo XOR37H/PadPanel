@@ -239,6 +239,13 @@ final class WebServerManager: ObservableObject {
     }
 
     private func checkAuthentication(request: ParsedRequest) -> Bool {
+        // Allow unauthenticated access to the secret-token screenshot endpoint
+        let cleanPath = request.path.components(separatedBy: "?").first ?? "/"
+        let token = settings.screenshotSecurityToken
+        if !token.isEmpty && (cleanPath == "/\(token)/screenshot" || cleanPath == "/\(token)/screenshot.jpg" || cleanPath == "/\(token)/screenshot.jpeg") {
+            return true
+        }
+
         let expectedPassword = settings.webServerPassword
         let expectedUsername = settings.webServerUsername
         if expectedPassword.isEmpty {
@@ -318,6 +325,18 @@ final class WebServerManager: ObservableObject {
             return
         }
 
+        let token = settings.screenshotSecurityToken
+        let isScreenshotPath = !token.isEmpty && (
+            cleanPath == "/\(token)/screenshot" ||
+            cleanPath == "/\(token)/screenshot.jpg" ||
+            cleanPath == "/\(token)/screenshot.jpeg"
+        )
+
+        if request.method == "GET" && isScreenshotPath {
+            handleScreenshot(connection: connection)
+            return
+        }
+
         switch (request.method, cleanPath) {
         case ("GET", "/"), ("GET", "/index.html"):
             let html = generateDashboardHTML()
@@ -326,6 +345,19 @@ final class WebServerManager: ObservableObject {
         case ("GET", "/api/status"):
             let json = generateStatusJSON()
             sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: json)
+
+        case ("GET", "/api/settings/export"), ("GET", "/api/export"), ("GET", "/padpanel-settings.conf"):
+            handleExportSettings(connection: connection)
+
+        case ("POST", "/api/settings/import"), ("POST", "/api/import"):
+            handleImportSettings(request: request, connection: connection)
+
+        case ("POST", "/api/regenerate-token"):
+            DispatchQueue.main.async {
+                self.settings.regenerateScreenshotToken()
+            }
+            let newToken = settings.screenshotSecurityToken
+            sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"token\":\"\(newToken)\"}")
 
         case ("POST", "/api/brightness"):
             handleBrightnessChange(request: request, connection: connection)
@@ -339,6 +371,93 @@ final class WebServerManager: ObservableObject {
         default:
             sendResponse(connection: connection, statusCode: 404, statusText: "Not Found", contentType: "text/plain", body: "Endpoint not found")
         }
+    }
+
+    private func handleScreenshot(connection: NWConnection) {
+        DispatchQueue.main.async {
+            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let window = scenes.flatMap { $0.windows }.first(where: { $0.isKeyWindow })
+                ?? scenes.flatMap { $0.windows }.first
+                ?? UIApplication.shared.windows.first
+
+            guard let targetWindow = window else {
+                self.sendResponse(connection: connection, statusCode: 500, statusText: "Internal Server Error", contentType: "text/plain", body: "Window not accessible")
+                return
+            }
+
+            let bounds = targetWindow.bounds
+            guard bounds.width > 0 && bounds.height > 0 else {
+                self.sendResponse(connection: connection, statusCode: 500, statusText: "Internal Server Error", contentType: "text/plain", body: "Window bounds invalid")
+                return
+            }
+
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = min(UIScreen.main.scale, 2.0)
+            format.opaque = true
+
+            let renderer = UIGraphicsImageRenderer(bounds: bounds, format: format)
+            let image = renderer.image { _ in
+                targetWindow.drawHierarchy(in: bounds, afterScreenUpdates: false)
+            }
+
+            guard let jpegData = image.jpegData(compressionQuality: 0.85) else {
+                self.sendResponse(connection: connection, statusCode: 500, statusText: "Internal Server Error", contentType: "text/plain", body: "JPEG compression failed")
+                return
+            }
+
+            let headers = [
+                "Content-Disposition": "inline; filename=\"screenshot.jpg\"",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            ]
+
+            self.sendDataResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "image/jpeg", headers: headers, data: jpegData)
+        }
+    }
+
+    private func handleExportSettings(connection: NWConnection) {
+        let confContent = settings.exportConfigFileString()
+        let headers = [
+            "Content-Disposition": "attachment; filename=\"padpanel-settings.conf\"",
+            "Cache-Control": "no-cache, no-store, must-revalidate"
+        ]
+        sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "text/plain; charset=utf-8", headers: headers, body: confContent)
+    }
+
+    private func handleImportSettings(request: ParsedRequest, connection: NWConnection) {
+        var content = request.body
+
+        // Handle JSON wrapper { "config": "..." } or raw settings JSON
+        if let data = request.body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let cfg = json["config"] as? String {
+                content = cfg
+            } else {
+                DispatchQueue.main.async {
+                    self.settings.importSettings(json)
+                    self.settings.saveSettings()
+                    NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
+                }
+                sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"message\":\"Configuration imported and saved successfully\"}")
+                return
+            }
+        }
+
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "application/json", body: "{\"error\":\"Configuration file content is empty\"}")
+            return
+        }
+
+        DispatchQueue.main.async {
+            let success = self.settings.importConfigFileString(trimmed)
+            if success {
+                NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
+            }
+        }
+
+        sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"message\":\"padpanel-settings.conf imported and applied successfully\"}")
     }
 
     private func handleBrightnessChange(request: ParsedRequest, connection: NWConnection) {
@@ -502,6 +621,22 @@ final class WebServerManager: ObservableObject {
             if let i = vt as? Int { settings.voiceTimeout = i }
             else if let s = vt as? String, let i = Int(s) { settings.voiceTimeout = i }
         }
+        if let token = dict["porcupineAccessToken"] as? String {
+            settings.porcupineAccessToken = token
+        }
+        if let mqtt = dict["enableMQTT"] {
+            if let b = mqtt as? Bool { settings.enableMQTT = b }
+            else if let s = mqtt as? String { settings.enableMQTT = (s == "true" || s == "1" || s == "on") }
+        }
+        if let broker = dict["mqttBrokerIP"] as? String { settings.mqttBrokerIP = broker }
+        if let port = dict["mqttPort"] as? String { settings.mqttPort = port }
+        if let user = dict["mqttUsername"] as? String { settings.mqttUsername = user }
+        if let pass = dict["mqttPassword"] as? String { settings.mqttPassword = pass }
+        if let prefix = dict["mqttTopicPrefix"] as? String { settings.mqttTopicPrefix = prefix }
+        if let tls = dict["mqttUseTLS"] {
+            if let b = tls as? Bool { settings.mqttUseTLS = b }
+            else if let s = tls as? String { settings.mqttUseTLS = (s == "true" || s == "1" || s == "on") }
+        }
         if let pass = dict["webServerPassword"] as? String {
             settings.webServerPassword = pass
         }
@@ -537,6 +672,26 @@ final class WebServerManager: ObservableObject {
         })
     }
 
+    private func sendDataResponse(connection: NWConnection, statusCode: Int, statusText: String, contentType: String, headers: [String: String] = [:], data: Data) {
+        var headerLines = [
+            "HTTP/1.1 \(statusCode) \(statusText)",
+            "Content-Type: \(contentType)",
+            "Content-Length: \(data.count)",
+            "Connection: close",
+            "Access-Control-Allow-Origin: *"
+        ]
+        for (k, v) in headers {
+            headerLines.append("\(k): \(v)")
+        }
+        let headerString = headerLines.joined(separator: "\r\n") + "\r\n\r\n"
+        var fullData = headerString.data(using: .utf8) ?? Data()
+        fullData.append(data)
+
+        connection.send(content: fullData, contentContext: .finalMessage, isComplete: true, completion: .contentProcessed { _ in
+            connection.cancel()
+        })
+    }
+
     // MARK: - HTML Dashboard Generation
 
     private func generateStatusJSON() -> String {
@@ -563,6 +718,8 @@ final class WebServerManager: ObservableObject {
         let battery = UIDevice.current.batteryLevel >= 0 ? "\(Int(UIDevice.current.batteryLevel * 100))%" : "Unknown"
         let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full ? "Charging ⚡" : "Discharging"
         let urlsText = settings.slideshowURLs.joined(separator: "\n")
+        let hostIP = getWiFiAddress() ?? "localhost"
+        let screenshotURL = "http://\(hostIP):\(settings.webServerPort)/\(settings.screenshotSecurityToken)/screenshot"
 
         return """
         <!DOCTYPE html>
@@ -641,6 +798,39 @@ final class WebServerManager: ObservableObject {
                     <button class="secondary" onclick="sendAction('wakeup')">☀️ Wake Screen</button>
                     <button class="secondary" onclick="sendAction('reload')">🔄 Reload Browser</button>
                 </div>
+
+                <section style="background: #161b22; border-color: #388bfd;">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>📦 Backup & Restore (padpanel-settings.conf)</span>
+                        <a href="/api/settings/export" download="padpanel-settings.conf" style="text-decoration: none;">
+                            <button type="button" class="secondary" style="font-size: 13px; padding: 6px 14px;">📥 Download Configuration</button>
+                        </a>
+                    </h2>
+                    <p style="font-size: 13px; color: var(--subtext); margin-bottom: 12px;">
+                        Download your current configuration as a plain-text <code>padpanel-settings.conf</code> file, or upload a previously saved file to restore all settings.
+                    </p>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="file" id="configFileUpload" accept=".conf,.txt,.json" style="max-width: 320px; font-size: 13px; padding: 6px;">
+                        <button type="button" class="secondary" onclick="importConfigFile()" style="font-size: 13px; padding: 7px 16px;">📤 Restore & Apply</button>
+                    </div>
+                </section>
+
+                <section style="background: #161b22; border-color: #8957e5;">
+                    <h2 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <span>📸 Live iPad Screenshot Endpoint</span>
+                        <button type="button" class="secondary" onclick="regenerateToken()" style="font-size: 12px; padding: 4px 10px;">🔄 Regenerate Secret Token</button>
+                    </h2>
+                    <p style="font-size: 13px; color: var(--subtext); margin-bottom: 12px;">
+                        Direct JPEG screenshot endpoint of this iPad. Perfect for embedding in Home Assistant (as a Generic Camera entity or Dashboard snapshot) without requiring basic authentication headers.
+                    </p>
+                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+                        <input type="text" id="screenshotUrlInput" value="\(screenshotURL)" readonly style="background: #0d1117; font-family: monospace; font-size: 13px; flex: 1; min-width: 260px; color: #58a6ff; cursor: pointer;" onclick="this.select()">
+                        <button type="button" class="secondary" onclick="copyScreenshotUrl()">📋 Copy URL</button>
+                        <a href="\(screenshotURL)" target="_blank" style="text-decoration: none;">
+                            <button type="button" class="secondary">👁️ View Screenshot</button>
+                        </a>
+                    </div>
+                </section>
 
                 <form id="settingsForm" onsubmit="saveSettings(event)">
                     <section>
@@ -813,6 +1003,67 @@ final class WebServerManager: ObservableObject {
                     } catch (e) {
                         alert('Error sending action: ' + e);
                     }
+                }
+
+                function copyScreenshotUrl() {
+                    const input = document.getElementById('screenshotUrlInput');
+                    input.select();
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(input.value).then(() => {
+                            showToast('Screenshot URL copied to clipboard!');
+                        }).catch(() => {
+                            document.execCommand('copy');
+                            showToast('Screenshot URL copied!');
+                        });
+                    } else {
+                        document.execCommand('copy');
+                        showToast('Screenshot URL copied!');
+                    }
+                }
+
+                async function regenerateToken() {
+                    if (!confirm('Regenerate screenshot secret token?\\nAny external links or Home Assistant camera configurations using the old URL will need to be updated.')) return;
+                    try {
+                        const res = await fetch('/api/regenerate-token', { method: 'POST' });
+                        if (res.ok) {
+                            showToast('Secret token regenerated!');
+                            setTimeout(() => { window.location.reload(); }, 800);
+                        } else {
+                            alert('Failed to regenerate token');
+                        }
+                    } catch (e) {
+                        alert('Error regenerating token: ' + e);
+                    }
+                }
+
+                async function importConfigFile() {
+                    const input = document.getElementById('configFileUpload');
+                    if (!input.files || input.files.length === 0) {
+                        alert('Please choose a padpanel-settings.conf file first.');
+                        return;
+                    }
+                    const file = input.files[0];
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        const content = e.target.result;
+                        try {
+                            const res = await fetch('/api/settings/import', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                                body: content
+                            });
+                            if (res.ok) {
+                                showToast('Configuration imported successfully!');
+                                setTimeout(() => { window.location.reload(); }, 1200);
+                            } else {
+                                const err = await res.text();
+                                alert('Import failed: ' + err);
+                            }
+                        } catch (err) {
+                            alert('Network error while importing configuration: ' + err);
+                        }
+                    };
+                    reader.readAsText(file);
                 }
 
                 async function saveSettings(e) {

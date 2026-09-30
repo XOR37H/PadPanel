@@ -12,17 +12,17 @@ class SettingsManager: ObservableObject {
     private var userDefaults: UserDefaults { _userDefaults }
     
     // MARK: - Published Settings
-    @Published var mainDashboardURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+    @Published var mainDashboardURL: String = "http://yourdashboard.local"
     @Published var enableHomeAssistant: Bool = false
     @Published var homeAssistantIP: String = "homeassistant.local"
     @Published var homeAssistantPort: String = "8123"
-    @Published var accessToken: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwYTJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM"
+    @Published var accessToken: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDkpXVCJ9.eyJpc3MiOiIwYTAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM"
     @Published var useHTTPS: Bool = false
     
     @Published var mqttBrokerIP: String = "homeassistant.local"
     @Published var mqttPort: String = "1883"
     @Published var mqttUsername: String = "homeassistant"
-    @Published var mqttPassword: String = "iepoiph4ongiesah2zoZae4AiLa8bie9oochaahaiQuoush3or3kiequoo3xohye"
+    @Published var mqttPassword: String = "iepoiph4ongiesah2zoZaahaiQuoush3oe4AiLa8bie9oochar3kiequoo3xohye"
     @Published var mqttUseTLS: Bool = false
     @Published var mqttTopicPrefix: String = "homeassistant"
     @Published var enableMQTT: Bool = false
@@ -45,11 +45,12 @@ class SettingsManager: ObservableObject {
     @Published var slideshowInterval: Double = 30.0
     
     // Remote Web Server & Device Authentication settings
-    @Published var enableWebServer: Bool = false
+    @Published var enableWebServer: Bool = true
     @Published var webServerPort: Int = 8080
     @Published var webServerUsername: String = "admin"
-    @Published var webServerPassword: String = ""
+    @Published var webServerPassword: String = "PadPanel"
     @Published var requireDeviceAuth: Bool = false
+    @Published var screenshotSecurityToken: String = SettingsManager.generateRandomSecurityToken()
     
     // Voice pipeline settings
     @Published var voiceSampleRate: Int = 16000
@@ -92,6 +93,7 @@ class SettingsManager: ObservableObject {
         static let webServerUsername = "webServerUsername"
         static let webServerPassword = "webServerPassword"
         static let requireDeviceAuth = "requireDeviceAuth"
+        static let screenshotSecurityToken = "screenshotSecurityToken"
         static let voiceSampleRate = "voiceSampleRate"
         static let voiceTimeout = "voiceTimeout"
         static let porcupineAccessToken = "porcupineAccessToken"
@@ -100,6 +102,15 @@ class SettingsManager: ObservableObject {
         static let homeAssistantConversationId = "homeAssistantConversationId"
         static let slideshowURLs     = "slideshowURLs"     // JSON-encoded [String]
         static let slideshowInterval = "slideshowInterval"  // Double, seconds
+    }
+    
+    /// Generates a random alphanumeric token in the format xxxx-xxxx-xxxx (0-9a-zA-Z)
+    static func generateRandomSecurityToken() -> String {
+        let chars = Array("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        func randomSegment(length: Int) -> String {
+            return String((0..<length).map { _ in chars.randomElement() ?? "x" })
+        }
+        return "\(randomSegment(length: 4))-\(randomSegment(length: 4))-\(randomSegment(length: 4))"
     }
     
     /// Designated initializer. Use SettingsManager.shared in production code.
@@ -271,7 +282,7 @@ class SettingsManager: ObservableObject {
         if defaults.object(forKey: Keys.enableWebServer) != nil {
             enableWebServer = defaults.bool(forKey: Keys.enableWebServer)
         } else {
-            enableWebServer = false // Default value: disabled
+            enableWebServer = true // Default value: enabled by default
         }
         
         if let port = defaults.object(forKey: Keys.webServerPort) as? Int, port >= 1024, port <= 65535 {
@@ -281,8 +292,15 @@ class SettingsManager: ObservableObject {
         }
         
         webServerUsername = defaults.string(forKey: Keys.webServerUsername) ?? "admin"
-        webServerPassword = defaults.string(forKey: Keys.webServerPassword) ?? ""
+        webServerPassword = defaults.string(forKey: Keys.webServerPassword) ?? "PadPanel"
         requireDeviceAuth = defaults.bool(forKey: Keys.requireDeviceAuth)
+        
+        if let token = defaults.string(forKey: Keys.screenshotSecurityToken), !token.isEmpty {
+            screenshotSecurityToken = token
+        } else {
+            screenshotSecurityToken = SettingsManager.generateRandomSecurityToken()
+            defaults.set(screenshotSecurityToken, forKey: Keys.screenshotSecurityToken)
+        }
         
         // Voice pipeline settings
         if let sr = defaults.object(forKey: Keys.voiceSampleRate) as? Int {
@@ -371,6 +389,7 @@ class SettingsManager: ObservableObject {
         defaults.set(webServerUsername, forKey: Keys.webServerUsername)
         defaults.set(webServerPassword, forKey: Keys.webServerPassword)
         defaults.set(requireDeviceAuth, forKey: Keys.requireDeviceAuth)
+        defaults.set(screenshotSecurityToken, forKey: Keys.screenshotSecurityToken)
         
         // Voice pipeline settings
         defaults.set(voiceSampleRate, forKey: Keys.voiceSampleRate)
@@ -438,12 +457,16 @@ class SettingsManager: ObservableObject {
     // MARK: - Export/Import
     func exportSettings() -> [String: Any] {
         return [
+            "mainDashboardURL": mainDashboardURL,
+            "enableHomeAssistant": enableHomeAssistant,
             "homeAssistantIP": homeAssistantIP,
             "homeAssistantPort": homeAssistantPort,
+            "accessToken": accessToken,
             "useHTTPS": useHTTPS,
             "mqttBrokerIP": mqttBrokerIP,
             "mqttPort": mqttPort,
             "mqttUsername": mqttUsername,
+            "mqttPassword": mqttPassword,
             "mqttUseTLS": mqttUseTLS,
             "mqttTopicPrefix": mqttTopicPrefix,
             "enableMQTT": enableMQTT,
@@ -453,7 +476,6 @@ class SettingsManager: ObservableObject {
             "screenBrightnessDimmed": screenBrightnessDimmed,
             "screenBrightnessNormal": screenBrightnessNormal,
             "enableVoiceActivation": enableVoiceActivation,
-            "kioskURL": kioskURL,
             "faceDetectionInterval": faceDetectionInterval,
             "wakeupMethod": wakeupMethod,
             "motionSensitivity": motionSensitivity,
@@ -462,9 +484,13 @@ class SettingsManager: ObservableObject {
             "autoRefreshInterval": autoRefreshInterval,
             "enableWebServer": enableWebServer,
             "webServerPort": webServerPort,
+            "webServerUsername": webServerUsername,
             "webServerPassword": webServerPassword,
+            "requireDeviceAuth": requireDeviceAuth,
+            "screenshotSecurityToken": screenshotSecurityToken,
             "voiceSampleRate": voiceSampleRate,
             "voiceTimeout": voiceTimeout,
+            "porcupineAccessToken": porcupineAccessToken,
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
             "homeAssistantConversationId": homeAssistantConversationId,
             "voiceLanguage": voiceLanguage,
@@ -474,44 +500,247 @@ class SettingsManager: ObservableObject {
     }
     
     func importSettings(_ settings: [String: Any]) {
-        homeAssistantIP = settings["homeAssistantIP"] as? String ?? homeAssistantIP
-        homeAssistantPort = settings["homeAssistantPort"] as? String ?? homeAssistantPort
-        useHTTPS = settings["useHTTPS"] as? Bool ?? useHTTPS
+        if let main = settings["mainDashboardURL"] as? String { mainDashboardURL = main }
+        if let ha = settings["enableHomeAssistant"] {
+            if let b = ha as? Bool { enableHomeAssistant = b }
+            else if let s = ha as? String { enableHomeAssistant = (s == "true" || s == "1" || s == "on") }
+        }
+        if let ip = settings["homeAssistantIP"] as? String { homeAssistantIP = ip }
+        if let port = settings["homeAssistantPort"] as? String { homeAssistantPort = port }
+        if let token = settings["accessToken"] as? String { accessToken = token }
+        if let https = settings["useHTTPS"] {
+            if let b = https as? Bool { useHTTPS = b }
+            else if let s = https as? String { useHTTPS = (s == "true" || s == "1") }
+        }
         
         // MQTT Settings
-        mqttBrokerIP = settings["mqttBrokerIP"] as? String ?? mqttBrokerIP
-        mqttPort = settings["mqttPort"] as? String ?? mqttPort
-        mqttUsername = settings["mqttUsername"] as? String ?? mqttUsername
-        mqttUseTLS = settings["mqttUseTLS"] as? Bool ?? mqttUseTLS
-        mqttTopicPrefix = settings["mqttTopicPrefix"] as? String ?? mqttTopicPrefix
-        enableMQTT = settings["enableMQTT"] as? Bool ?? enableMQTT
-        mqttBatteryUpdateInterval = settings["mqttBatteryUpdateInterval"] as? Double ?? mqttBatteryUpdateInterval
+        if let broker = settings["mqttBrokerIP"] as? String { mqttBrokerIP = broker }
+        if let port = settings["mqttPort"] as? String { mqttPort = port }
+        if let user = settings["mqttUsername"] as? String { mqttUsername = user }
+        if let pass = settings["mqttPassword"] as? String { mqttPassword = pass }
+        if let tls = settings["mqttUseTLS"] {
+            if let b = tls as? Bool { mqttUseTLS = b }
+            else if let s = tls as? String { mqttUseTLS = (s == "true" || s == "1") }
+        }
+        if let prefix = settings["mqttTopicPrefix"] as? String { mqttTopicPrefix = prefix }
+        if let mqtt = settings["enableMQTT"] {
+            if let b = mqtt as? Bool { enableMQTT = b }
+            else if let s = mqtt as? String { enableMQTT = (s == "true" || s == "1" || s == "on") }
+        }
+        if let interval = settings["mqttBatteryUpdateInterval"] {
+            if let d = interval as? Double { mqttBatteryUpdateInterval = d }
+            else if let s = interval as? String, let d = Double(s) { mqttBatteryUpdateInterval = d }
+        }
         
-        screensaverTimeout = settings["screensaverTimeout"] as? Double ?? screensaverTimeout
-        screensaverMode = settings["screensaverMode"] as? String ?? screensaverMode
-        screenBrightnessDimmed = settings["screenBrightnessDimmed"] as? Double ?? screenBrightnessDimmed
-        screenBrightnessNormal = settings["screenBrightnessNormal"] as? Double ?? screenBrightnessNormal
-        enableVoiceActivation = settings["enableVoiceActivation"] as? Bool ?? enableVoiceActivation
-        kioskURL = settings["kioskURL"] as? String ?? kioskURL
-        faceDetectionInterval = settings["faceDetectionInterval"] as? Double ?? faceDetectionInterval
-        wakeupMethod = settings["wakeupMethod"] as? String ?? wakeupMethod
-        if let sens = settings["motionSensitivity"] as? Double { motionSensitivity = sens }
-        if let dbg = settings["showDebugInfo"] as? Bool { showDebugInfo = dbg }
-        if let ref = settings["enableAutoRefresh"] as? Bool { enableAutoRefresh = ref }
-        if let refInt = settings["autoRefreshInterval"] as? Double { autoRefreshInterval = refInt }
-        if let ws = settings["enableWebServer"] as? Bool { enableWebServer = ws }
-        if let port = settings["webServerPort"] as? Int { webServerPort = port }
-        webServerPassword = settings["webServerPassword"] as? String ?? webServerPassword
+        if let timeout = settings["screensaverTimeout"] {
+            if let d = timeout as? Double { screensaverTimeout = d }
+            else if let s = timeout as? String, let d = Double(s) { screensaverTimeout = d }
+        }
+        if let mode = settings["screensaverMode"] as? String { screensaverMode = mode }
+        if let dimmed = settings["screenBrightnessDimmed"] {
+            if let d = dimmed as? Double { screenBrightnessDimmed = d }
+            else if let s = dimmed as? String, let d = Double(s) { screenBrightnessDimmed = d }
+        }
+        if let normal = settings["screenBrightnessNormal"] {
+            if let d = normal as? Double { screenBrightnessNormal = d }
+            else if let s = normal as? String, let d = Double(s) { screenBrightnessNormal = d }
+        }
+        if let voice = settings["enableVoiceActivation"] {
+            if let b = voice as? Bool { enableVoiceActivation = b }
+            else if let s = voice as? String { enableVoiceActivation = (s == "true" || s == "1" || s == "on") }
+        }
+        if let interval = settings["faceDetectionInterval"] {
+            if let d = interval as? Double { faceDetectionInterval = d }
+            else if let s = interval as? String, let d = Double(s) { faceDetectionInterval = d }
+        }
+        if let wakeup = settings["wakeupMethod"] as? String { wakeupMethod = wakeup }
+        if let sens = settings["motionSensitivity"] {
+            if let d = sens as? Double { motionSensitivity = d }
+            else if let s = sens as? String, let d = Double(s) { motionSensitivity = d }
+        }
+        if let dbg = settings["showDebugInfo"] {
+            if let b = dbg as? Bool { showDebugInfo = b }
+            else if let s = dbg as? String { showDebugInfo = (s == "true" || s == "1") }
+        }
+        if let ref = settings["enableAutoRefresh"] {
+            if let b = ref as? Bool { enableAutoRefresh = b }
+            else if let s = ref as? String { enableAutoRefresh = (s == "true" || s == "1" || s == "on") }
+        }
+        if let refInt = settings["autoRefreshInterval"] {
+            if let d = refInt as? Double { autoRefreshInterval = d }
+            else if let s = refInt as? String, let d = Double(s) { autoRefreshInterval = d }
+        }
+        if let ws = settings["enableWebServer"] {
+            if let b = ws as? Bool { enableWebServer = b }
+            else if let s = ws as? String { enableWebServer = (s == "true" || s == "1" || s == "on") }
+        }
+        if let port = settings["webServerPort"] {
+            if let i = port as? Int { webServerPort = i }
+            else if let s = port as? String, let i = Int(s) { webServerPort = i }
+        }
+        if let user = settings["webServerUsername"] as? String { webServerUsername = user }
+        if let pass = settings["webServerPassword"] as? String { webServerPassword = pass }
+        if let auth = settings["requireDeviceAuth"] {
+            if let b = auth as? Bool { requireDeviceAuth = b }
+            else if let s = auth as? String { requireDeviceAuth = (s == "true" || s == "1") }
+        }
+        if let token = settings["screenshotSecurityToken"] as? String, !token.isEmpty {
+            screenshotSecurityToken = token
+        }
 
-        homeAssistantConversationId = settings["homeAssistantConversationId"] as? String ?? homeAssistantConversationId
-        homeAssistantConversationAgent = settings["homeAssistantConversationAgent"] as? String ?? homeAssistantConversationAgent
-        voiceLanguage = settings["voiceLanguage"] as? String ?? voiceLanguage
+        if let convId = settings["homeAssistantConversationId"] as? String { homeAssistantConversationId = convId }
+        if let agent = settings["homeAssistantConversationAgent"] as? String { homeAssistantConversationAgent = agent }
+        if let lang = settings["voiceLanguage"] as? String { voiceLanguage = lang }
+        if let token = settings["porcupineAccessToken"] as? String { porcupineAccessToken = token }
 
-        if let v = settings["voiceSampleRate"] as? Int { voiceSampleRate = v }
-        if let v = settings["voiceTimeout"] as? Int { voiceTimeout = v }
+        if let v = settings["voiceSampleRate"] {
+            if let i = v as? Int { voiceSampleRate = i }
+            else if let s = v as? String, let i = Int(s) { voiceSampleRate = i }
+        }
+        if let v = settings["voiceTimeout"] {
+            if let i = v as? Int { voiceTimeout = i }
+            else if let s = v as? String, let i = Int(s) { voiceTimeout = i }
+        }
 
-        if let urls = settings["slideshowURLs"] as? [String] { slideshowURLs = urls }
-        slideshowInterval = settings["slideshowInterval"] as? Double ?? slideshowInterval
+        if let urls = settings["slideshowURLs"] as? [String] {
+            slideshowURLs = urls
+        } else if let urlsString = settings["slideshowURLs"] as? String {
+            if let data = urlsString.data(using: .utf8),
+               let decoded = try? JSONDecoder().decode([String].self, from: data) {
+                slideshowURLs = decoded
+            } else {
+                slideshowURLs = urlsString.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            }
+        }
+
+        if let interval = settings["slideshowInterval"] {
+            if let d = interval as? Double { slideshowInterval = d }
+            else if let s = interval as? String, let d = Double(s) { slideshowInterval = d }
+        }
+    }
+
+    /// Generates a structured, human-readable configuration file for padpanel-settings.conf.
+    func exportConfigFileString() -> String {
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.string(from: Date())
+        let urlsJson = (try? String(data: JSONEncoder().encode(slideshowURLs), encoding: .utf8)) ?? "[]"
+
+        return """
+        # ====================================================================
+        # PadPanel Configuration File: padpanel-settings.conf
+        # Exported: \(now)
+        # ====================================================================
+
+        [Dashboard]
+        mainDashboardURL = \(mainDashboardURL)
+        enableAutoRefresh = \(enableAutoRefresh)
+        autoRefreshInterval = \(autoRefreshInterval)
+
+        [HomeAssistant]
+        enableHomeAssistant = \(enableHomeAssistant)
+        homeAssistantIP = \(homeAssistantIP)
+        homeAssistantPort = \(homeAssistantPort)
+        useHTTPS = \(useHTTPS)
+        accessToken = \(accessToken)
+        homeAssistantConversationAgent = \(homeAssistantConversationAgent)
+        homeAssistantConversationId = \(homeAssistantConversationId)
+
+        [VoiceControl]
+        enableVoiceActivation = \(enableVoiceActivation)
+        voiceSampleRate = \(voiceSampleRate)
+        voiceTimeout = \(voiceTimeout)
+        voiceLanguage = \(voiceLanguage)
+        porcupineAccessToken = \(porcupineAccessToken)
+
+        [Screensaver]
+        screensaverMode = \(screensaverMode)
+        screensaverTimeout = \(screensaverTimeout)
+        screenBrightnessNormal = \(screenBrightnessNormal)
+        screenBrightnessDimmed = \(screenBrightnessDimmed)
+        wakeupMethod = \(wakeupMethod)
+        motionSensitivity = \(motionSensitivity)
+        faceDetectionInterval = \(faceDetectionInterval)
+        showDebugInfo = \(showDebugInfo)
+        slideshowURLs = \(urlsJson)
+        slideshowInterval = \(slideshowInterval)
+
+        [MQTT]
+        enableMQTT = \(enableMQTT)
+        mqttBrokerIP = \(mqttBrokerIP)
+        mqttPort = \(mqttPort)
+        mqttUsername = \(mqttUsername)
+        mqttPassword = \(mqttPassword)
+        mqttUseTLS = \(mqttUseTLS)
+        mqttTopicPrefix = \(mqttTopicPrefix)
+        mqttBatteryUpdateInterval = \(mqttBatteryUpdateInterval)
+
+        [WebServer_and_Security]
+        enableWebServer = \(enableWebServer)
+        webServerPort = \(webServerPort)
+        webServerUsername = \(webServerUsername)
+        webServerPassword = \(webServerPassword)
+        requireDeviceAuth = \(requireDeviceAuth)
+        screenshotSecurityToken = \(screenshotSecurityToken)
+        """
+    }
+
+    /// Parses and applies configuration from padpanel-settings.conf plain text (or JSON).
+    @discardableResult
+    func importConfigFileString(_ content: String) -> Bool {
+        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        // Try JSON parsing first (if the uploaded file happens to be JSON)
+        if trimmed.hasPrefix("{") && trimmed.hasSuffix("}"),
+           let data = trimmed.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            importSettings(json)
+            saveSettings()
+            return true
+        }
+
+        // Parse key-value lines
+        var dict: [String: Any] = [:]
+        for rawLine in trimmed.components(separatedBy: .newlines) {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line.isEmpty || line.hasPrefix("#") || line.hasPrefix("//") || line.hasPrefix(";") || (line.hasPrefix("[") && line.hasSuffix("]")) {
+                continue
+            }
+            guard let equalIdx = line.firstIndex(of: "=") else { continue }
+            let key = String(line[..<equalIdx]).trimmingCharacters(in: .whitespaces)
+            let value = String(line[line.index(after: equalIdx)...]).trimmingCharacters(in: .whitespaces)
+            guard !key.isEmpty else { continue }
+
+            if key == "slideshowURLs" {
+                if let data = value.data(using: .utf8),
+                   let list = try? JSONDecoder().decode([String].self, from: data) {
+                    dict[key] = list
+                } else {
+                    dict[key] = value
+                }
+            } else if value.lowercased() == "true" || value.lowercased() == "false" {
+                dict[key] = (value.lowercased() == "true")
+            } else if let intVal = Int(value) {
+                dict[key] = intVal
+            } else if let doubleVal = Double(value) {
+                dict[key] = doubleVal
+            } else {
+                dict[key] = value
+            }
+        }
+
+        if !dict.isEmpty {
+            importSettings(dict)
+            saveSettings()
+            return true
+        }
+        return false
+    }
+    
+    // MARK: - Screenshot Token
+    func regenerateScreenshotToken() {
+        screenshotSecurityToken = SettingsManager.generateRandomSecurityToken()
+        saveSettings()
     }
     
     // MARK: - Reset
@@ -544,10 +773,10 @@ class SettingsManager: ObservableObject {
         showDebugInfo = false
         enableAutoRefresh = false
         autoRefreshInterval = 300.0
-        enableWebServer = false
+        enableWebServer = true
         webServerPort = 8080
         webServerUsername = "admin"
-        webServerPassword = ""
+        webServerPassword = "PadPanel"
         requireDeviceAuth = false
         
         // Voice pipeline defaults

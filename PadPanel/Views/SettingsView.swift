@@ -21,7 +21,6 @@ struct SettingsView: View {
                 mqttSection
                 deviceAuthSection
                 webServerSection
-                kioskSection
                 actionsSection
             }
             .navigationTitle("Settings")
@@ -85,6 +84,21 @@ struct SettingsView: View {
                         Text("Reload Dashboard")
                     }
                     .font(.caption)
+                }
+            }
+            
+            Toggle("Auto refresh dashboard", isOn: $settings.enableAutoRefresh.animation())
+            
+            if settings.enableAutoRefresh {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Refresh interval: \(settings.autoRefreshIntervalFormatted)")
+                    Slider(value: $settings.autoRefreshInterval, in: 10...3600, step: 10) {
+                        Text("Refresh Interval")
+                    } minimumValueLabel: {
+                        Text("10s")
+                    } maximumValueLabel: {
+                        Text("60m")
+                    }
                 }
             }
         }
@@ -500,38 +514,12 @@ struct SettingsView: View {
         }
     }
     
-    private var kioskSection: some View {
-        Section(
-            header: Text("Kiosk Page Refresh"),
-            footer: Text("Periodically reloads the dashboard webpage to prevent memory bloat and keep real-time UI synchronized.")
-        ) {
-            Toggle("Auto refresh page", isOn: $settings.enableAutoRefresh.animation())
-            
-            if settings.enableAutoRefresh {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Refresh interval: \(settings.autoRefreshIntervalFormatted)")
-                    Slider(value: $settings.autoRefreshInterval, in: 10...3600, step: 10) {
-                        Text("Refresh Interval")
-                    } minimumValueLabel: {
-                        Text("10s")
-                    } maximumValueLabel: {
-                        Text("60m")
-                    }
-                }
-            }
-        }
-    }
-    
     private var actionsSection: some View {
         Section("Actions") {
             Button("Reset settings") {
                 showingResetAlert = true
             }
             .foregroundColor(.red)
-            
-            Button("Export settings") {
-                exportSettings()
-            }
         }
     }
     
@@ -622,23 +610,6 @@ struct SettingsView: View {
                 }
             }
         }.resume()
-    }
-    
-    private func exportSettings() {
-        let settings = settings.exportSettings()
-        if let data = try? JSONSerialization.data(withJSONObject: settings, options: .prettyPrinted),
-           let jsonString = String(data: data, encoding: .utf8) {
-            
-            let activityViewController = UIActivityViewController(
-                activityItems: [jsonString],
-                applicationActivities: nil
-            )
-            
-            if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-               let window = windowScene.windows.first {
-                window.rootViewController?.present(activityViewController, animated: true)
-            }
-        }
     }
 }
 
