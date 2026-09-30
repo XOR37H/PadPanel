@@ -2,12 +2,17 @@ import SwiftUI
 
 struct SplashScreenView: View {
     @ObservedObject var settings: SettingsManager
+    @ObservedObject var webServer = WebServerManager.shared
     let isPermanent: Bool
     
     @State private var pulseAnimation = false
     
-    private var hostIP: String {
-        WebServerManager.shared.serverURL.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? "localhost"
+    private var displayURL: String {
+        if !webServer.serverURL.isEmpty {
+            return webServer.serverURL
+        }
+        let ip = WebServerManager.getWiFiAddress() ?? "localhost"
+        return "http://\(ip):\(settings.webServerPort)"
     }
 
     var body: some View {
@@ -62,7 +67,7 @@ struct SplashScreenView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.white.opacity(0.5))
                             
-                            Text("http://\(hostIP):\(String(settings.webServerPort))")
+                            Text(displayURL)
                                 .font(.system(size: 14, weight: .semibold, design: .monospaced))
                                 .foregroundColor(Color(red: 0.35, green: 0.65, blue: 1.0))
                         }

@@ -105,7 +105,7 @@ final class WebServerManager: ObservableObject {
                         self.isRunning = true
                         self.activePort = Int(validPort)
                         self.lastError = nil
-                        let ip = self.getWiFiAddress() ?? "localhost"
+                        let ip = WebServerManager.getWiFiAddress() ?? "localhost"
                         self.serverURL = "http://\(ip):\(validPort)"
                         AppLogger.app.info("Remote Web Server listening on \(self.serverURL)")
                     case .failed(let error):
@@ -721,7 +721,7 @@ final class WebServerManager: ObservableObject {
         let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
         let chargingText = isCharging ? "Charging" : "Discharging"
         let urlsText = settings.slideshowURLs.joined(separator: "\n")
-        let hostIP = getWiFiAddress() ?? "localhost"
+        let hostIP = WebServerManager.getWiFiAddress() ?? "localhost"
         let screenshotURL = "http://\(hostIP):\(settings.webServerPort)/\(settings.screenshotSecurityToken)/screenshot"
 
         return """
@@ -1455,7 +1455,7 @@ final class WebServerManager: ObservableObject {
     }
 
     // MARK: - Local IP Helper
-    private func getWiFiAddress() -> String? {
+    static func getWiFiAddress() -> String? {
         #if canImport(Darwin)
         var address: String?
         var ifaddr: UnsafeMutablePointer<ifaddrs>?
