@@ -429,6 +429,16 @@ final class WebServerManager: ObservableObject {
     }
 
     private func applySettingsDictionary(_ dict: [String: Any]) {
+        if let main = dict["mainDashboardURL"] as? String {
+            settings.mainDashboardURL = main
+        }
+        if let ha = dict["enableHomeAssistant"] {
+            if let b = ha as? Bool { settings.enableHomeAssistant = b }
+            else if let s = ha as? String { settings.enableHomeAssistant = (s == "true" || s == "1" || s == "on") }
+        }
+        if let haIP = dict["homeAssistantIP"] as? String { settings.homeAssistantIP = haIP }
+        if let haPort = dict["homeAssistantPort"] as? String { settings.homeAssistantPort = haPort }
+        if let token = dict["accessToken"] as? String { settings.accessToken = token }
         if let mode = dict["screensaverMode"] as? String { settings.screensaverMode = mode }
         if let timeout = dict["screensaverTimeout"] {
             if let d = timeout as? Double { settings.screensaverTimeout = d }
@@ -633,6 +643,15 @@ final class WebServerManager: ObservableObject {
                 </div>
 
                 <form id="settingsForm" onsubmit="saveSettings(event)">
+                    <section>
+                        <h2>Main Dashboard URL</h2>
+                        <div class="form-group">
+                            <label>Primary Kiosk URL</label>
+                            <input type="text" name="mainDashboardURL" value="\(settings.mainDashboardURL)" placeholder="http://homeassistant.local:8123/...">
+                            <div class="hint">Main full-screen dashboard displayed when kiosk is awake.</div>
+                        </div>
+                    </section>
+
                     <section>
                         <h2>Screensaver & Brightness</h2>
                         <div class="form-group">

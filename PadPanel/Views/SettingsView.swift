@@ -15,12 +15,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                mainDashboardSection
+                screensaverSection
                 homeAssistantSection
                 mqttSection
-                screensaverSection
                 deviceAuthSection
                 webServerSection
-                voiceSection
                 kioskSection
                 actionsSection
             }
@@ -62,6 +62,34 @@ struct SettingsView: View {
         }
     }
     
+    private var mainDashboardSection: some View {
+        Section(
+            header: Text("Main Dashboard URL"),
+            footer: Text("This is your primary kiosk dashboard displayed on the iPad screen.")
+        ) {
+            HStack {
+                Image(systemName: "globe")
+                    .foregroundColor(.blue)
+                TextField("http://homeassistant.local:8123/...", text: $settings.mainDashboardURL)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .keyboardType(.URL)
+            }
+            if !settings.mainDashboardURL.isEmpty {
+                Button(action: {
+                    NotificationCenter.default.post(name: .reloadAllWebViews, object: nil)
+                }) {
+                    HStack {
+                        Image(systemName: "arrow.clockwise")
+                        Text("Reload Dashboard")
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+    }
+
     private var mqttSection: some View {
         Section("MQTT Integration") {
             Toggle("Enable MQTT", isOn: $settings.enableMQTT.animation())
@@ -162,52 +190,98 @@ struct SettingsView: View {
     }
     
     private var homeAssistantSection: some View {
-        Section("Home Assistant") {
-            HStack {
-                Text("IP/Name")
-                Spacer()
-                TextField("192.168.1.100", text: $settings.homeAssistantIP)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .frame(maxWidth: 150)
-            }
+        Section(
+            header: Text("Home Assistant Integration"),
+            footer: Text("Enables background REST API communication and native Assist voice control with your Home Assistant server.")
+        ) {
+            Toggle("Enable Home Assistant", isOn: $settings.enableHomeAssistant.animation())
             
-            HStack {
-                Text("Port")
-                Spacer()
-                TextField("8123", text: $settings.homeAssistantPort)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .keyboardType(.numberPad)
-                    .frame(maxWidth: 100)
-            }
-            
-            Toggle("Use HTTPS", isOn: $settings.useHTTPS)
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Access Token")
-                SecureField("Long-lived Access Token", text: $settings.accessToken)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                Text("Create a Long-lived Access Token in Home Assistant under Profile → Security")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-            
-            Button(action: testConnection) {
+            if settings.enableHomeAssistant {
                 HStack {
-                    if isTestingConnection {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "network")
-                    }
-                    Text("Test connection")
+                    Text("IP/Name")
+                    Spacer()
+                    TextField("192.168.1.100", text: $settings.homeAssistantIP)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .frame(maxWidth: 160)
                 }
-            }
-            .disabled(isTestingConnection)
-            
-            if !testConnectionResult.isEmpty {
-                Text(testConnectionResult)
-                    .font(.caption)
-                    .foregroundColor(testConnectionResult.contains("Success") ? .green : .red)
+                
+                HStack {
+                    Text("Port")
+                    Spacer()
+                    TextField("8123", text: $settings.homeAssistantPort)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.numberPad)
+                        .frame(maxWidth: 100)
+                }
+                
+                Toggle("Use HTTPS", isOn: $settings.useHTTPS)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Long-lived Access Token")
+                    SecureField("Bearer Access Token", text: $settings.accessToken)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                    Text("Create in Home Assistant under Profile → Security → Long-Lived Access Tokens")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Button(action: testConnection) {
+                    HStack {
+                        if isTestingConnection {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "network")
+                        }
+                        Text("Test connection")
+                    }
+                }
+                .disabled(isTestingConnection)
+                
+                if !testConnectionResult.isEmpty {
+                    Text(testConnectionResult)
+                        .font(.caption)
+                        .foregroundColor(testConnectionResult.contains("Success") ? .green : .red)
+                }
+                
+                // Embedded Voice Control (Assist) Pipeline
+                Toggle("Enable Voice Control (Assist)", isOn: $settings.enableVoiceActivation.animation())
+                
+                if settings.enableVoiceActivation {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Sample rate: \(settings.voiceSampleRate) Hz")
+                        let supportedSampleRates: [Int] = [8000, 12000, 16000, 22050, 32000, 44100]
+                        Picker("Sample rate", selection: $settings.voiceSampleRate) {
+                            ForEach(supportedSampleRates, id: \.self) { rate in
+                                Text("\(rate / 1000) kHz").tag(rate)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Timeout: \(settings.voiceTimeout)s")
+                        Slider(value: Binding(
+                            get: { Double(settings.voiceTimeout) },
+                            set: { settings.voiceTimeout = Int($0) }
+                        ), in: 1...60, step: 1)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Porcupine Access Token")
+                        SecureField("Picovoice Access Token", text: $settings.porcupineAccessToken)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                            .autocapitalization(.none)
+                            .disableAutocorrection(true)
+                        Text("Create a Porcupine AccessKey in the Picovoice web console")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
         }
     }
@@ -219,7 +293,7 @@ struct SettingsView: View {
         case "dimming":
             return "Dimming only. Dims screen when inactive without overlay. Tap or sensors restore brightness."
         case "urls":
-            return "Smoothly cycles through configured slideshow URLs while inactive. Tap returns to dashboard."
+            return "Smoothly cycles through configured screensaver URLs while inactive. Tap returns to dashboard."
         case "off":
             return "Screensaver, dimming, and camera sensors are completely disabled."
         default:
@@ -249,6 +323,31 @@ struct SettingsView: View {
                     Text(screensaverModeDescription)
                         .font(.caption)
                         .foregroundColor(.secondary)
+                }
+                
+                if settings.screensaverMode == "urls" {
+                    NavigationLink("Manage Cycle URLs (\(settings.slideshowURLs.count))") {
+                        URLListEditor(
+                            committedURLs: $settings.slideshowURLs,
+                            committedInterval: $settings.slideshowInterval
+                        )
+                    }
+                    Text(settings.slideshowURLs.isEmpty
+                         ? "No cycle URLs configured — main dashboard will stay visible"
+                         : "\(settings.slideshowURLs.count) URL(s) configured for screensaver")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Cycle interval: \(Int(settings.slideshowInterval))s")
+                        Slider(value: $settings.slideshowInterval, in: 5...600, step: 5) {
+                            Text("Interval")
+                        } minimumValueLabel: {
+                            Text("5s")
+                        } maximumValueLabel: {
+                            Text("10m")
+                        }
+                    }
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
@@ -401,56 +500,11 @@ struct SettingsView: View {
         }
     }
     
-    private var voiceSection: some View {
-        Section("Voice control") {
-            Toggle("Enable voice activation", isOn: $settings.enableVoiceActivation.animation())
-            
-            if settings.enableVoiceActivation {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Sample rate: \(settings.voiceSampleRate) Hz")
-                    let supportedSampleRates: [Int] = [8000, 12000, 16000, 22050, 32000, 44100]
-                    Picker("Sample rate", selection: $settings.voiceSampleRate) {
-                        ForEach(supportedSampleRates, id: \.self) { rate in
-                            Text("\(rate / 1000) kHz").tag(rate)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Timeout: \(settings.voiceTimeout)s")
-                    Slider(value: Binding(
-                        get: { Double(settings.voiceTimeout) },
-                        set: { settings.voiceTimeout = Int($0) }
-                    ), in: 1...60, step: 1)
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Porcupine Access Token")
-                    SecureField("Long-lived Access Token", text: $settings.porcupineAccessToken)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    Text("Create a Long-lived Access Token the Picovoice web console")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-        }
-    }
-    
     private var kioskSection: some View {
-        Section("Kiosk mode") {
-            NavigationLink("Manage URLs (\(settings.slideshowURLs.count))") {
-                URLListEditor(
-                    committedURLs: $settings.slideshowURLs,
-                    committedInterval: $settings.slideshowInterval
-                )
-            }
-            Text(settings.slideshowURLs.isEmpty
-                 ? "No URLs configured — welcome screen is shown"
-                 : "\(settings.effectiveURLs.count) URL(s) · \(Int(settings.slideshowInterval)) s interval")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
+        Section(
+            header: Text("Kiosk Page Refresh"),
+            footer: Text("Periodically reloads the dashboard webpage to prevent memory bloat and keep real-time UI synchronized.")
+        ) {
             Toggle("Auto refresh page", isOn: $settings.enableAutoRefresh.animation())
             
             if settings.enableAutoRefresh {

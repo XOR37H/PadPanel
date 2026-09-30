@@ -12,6 +12,8 @@ class SettingsManager: ObservableObject {
     private var userDefaults: UserDefaults { _userDefaults }
     
     // MARK: - Published Settings
+    @Published var mainDashboardURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+    @Published var enableHomeAssistant: Bool = false
     @Published var homeAssistantIP: String = "homeassistant.local"
     @Published var homeAssistantPort: String = "8123"
     @Published var accessToken: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwYTJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM"
@@ -59,6 +61,8 @@ class SettingsManager: ObservableObject {
     
     // MARK: - UserDefaults Keys
     private enum Keys {
+        static let mainDashboardURL = "mainDashboardURL"
+        static let enableHomeAssistant = "enableHomeAssistant"
         static let homeAssistantIP = "homeAssistantIP"
         static let homeAssistantPort = "homeAssistantPort"
         static let accessToken = "accessToken"
@@ -153,6 +157,13 @@ class SettingsManager: ObservableObject {
     private func loadSettings() {
         let defaults = userDefaults
         
+        if defaults.object(forKey: Keys.enableHomeAssistant) != nil {
+            enableHomeAssistant = defaults.bool(forKey: Keys.enableHomeAssistant)
+        } else {
+            enableHomeAssistant = false
+        }
+
+        mainDashboardURL = defaults.string(forKey: Keys.mainDashboardURL) ?? defaults.string(forKey: Keys.kioskURL) ?? "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
         homeAssistantIP = defaults.string(forKey: Keys.homeAssistantIP) ?? "homeassistant.local"
         homeAssistantPort = defaults.string(forKey: Keys.homeAssistantPort) ?? "8123"
         accessToken = defaults.string(forKey: Keys.accessToken) ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwYTJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM"
@@ -325,6 +336,9 @@ class SettingsManager: ObservableObject {
     func saveSettings() {
         let defaults = userDefaults
         
+        defaults.set(mainDashboardURL, forKey: Keys.mainDashboardURL)
+        defaults.set(mainDashboardURL, forKey: Keys.kioskURL)
+        defaults.set(enableHomeAssistant, forKey: Keys.enableHomeAssistant)
         defaults.set(homeAssistantIP, forKey: Keys.homeAssistantIP)
         defaults.set(homeAssistantPort, forKey: Keys.homeAssistantPort)
         defaults.set(accessToken, forKey: Keys.accessToken)
@@ -502,6 +516,8 @@ class SettingsManager: ObservableObject {
     
     // MARK: - Reset
     func resetToDefaults() {
+        mainDashboardURL = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+        enableHomeAssistant = false
         homeAssistantIP = "homeassistant.local"
         homeAssistantPort = "8123"
         accessToken = ""
@@ -548,9 +564,20 @@ class SettingsManager: ObservableObject {
 
     // MARK: - Computed Properties
 
-    /// Returns the non-empty URLs configured for the slideshow.
-    /// An empty array indicates welcome screen mode.
+    /// Returns the active URLs to load into WebViews.
+    /// Index 0 is the main dashboard URL; subsequent indices are screensaver cycle URLs.
     var effectiveURLs: [String] {
-        slideshowURLs.filter { !$0.isEmpty }
+        var list: [String] = []
+        let trimmedMain = mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedMain.isEmpty {
+            list.append(trimmedMain)
+        }
+        for url in slideshowURLs {
+            let trimmed = url.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && !list.contains(trimmed) {
+                list.append(trimmed)
+            }
+        }
+        return list
     }
 }

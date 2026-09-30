@@ -145,8 +145,8 @@ struct ContentView: View {
         // Setup audio session for continuous recording
         audioManager.setupAudioSession()
 
-        // Start recording only if voice activation is enabled
-        if settings.enableVoiceActivation {
+        // Start recording only if voice activation and Home Assistant are enabled
+        if settings.enableHomeAssistant && settings.enableVoiceActivation {
             audioManager.startRecording()
         }
 
@@ -199,10 +199,11 @@ struct ContentView: View {
     private func handleSettingsChanged() {
         AppLogger.app.info("Settings changed – updating components")
 
-        // Update audio recording based on voice activation setting
-        if settings.enableVoiceActivation && !audioManager.isRecording {
+        // Update audio recording based on voice activation & Home Assistant settings
+        let isVoiceActive = settings.enableHomeAssistant && settings.enableVoiceActivation
+        if isVoiceActive && !audioManager.isRecording {
             audioManager.startRecording()
-        } else if !settings.enableVoiceActivation && audioManager.isRecording {
+        } else if !isVoiceActive && audioManager.isRecording {
             audioManager.stopRecording()
         }
 
