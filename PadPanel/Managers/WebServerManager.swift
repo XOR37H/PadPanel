@@ -715,8 +715,9 @@ final class WebServerManager: ObservableObject {
 
     private func generateDashboardHTML() -> String {
         UIDevice.current.isBatteryMonitoringEnabled = true
-        let battery = UIDevice.current.batteryLevel >= 0 ? "\(Int(UIDevice.current.batteryLevel * 100))%" : "Unknown"
-        let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full ? "Charging ⚡" : "Discharging"
+        let batteryPct = UIDevice.current.batteryLevel >= 0 ? "\(Int(UIDevice.current.batteryLevel * 100))%" : "Unknown"
+        let isCharging = UIDevice.current.batteryState == .charging || UIDevice.current.batteryState == .full
+        let chargingText = isCharging ? "Charging" : "Discharging"
         let urlsText = settings.slideshowURLs.joined(separator: "\n")
         let hostIP = getWiFiAddress() ?? "localhost"
         let screenshotURL = "http://\(hostIP):\(settings.webServerPort)/\(settings.screenshotSecurityToken)/screenshot"
@@ -727,166 +728,396 @@ final class WebServerManager: ObservableObject {
         <head>
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>PadPanel Remote Admin</title>
+            <title>PadPanel Administration</title>
+            <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
             <style>
                 :root {
-                    --bg: #121418;
-                    --card: #1c2027;
-                    --border: #2e3542;
-                    --text: #e6edf3;
+                    --bg: #0d1117;
+                    --card: #161b22;
+                    --card-muted: #13171d;
+                    --border: #30363d;
+                    --border-focus: #58a6ff;
+                    --text: #f0f6fc;
                     --subtext: #8b949e;
-                    --primary: #388bfd;
-                    --primary-hover: #1f6feb;
-                    --success: #238636;
-                    --danger: #da3633;
+                    --primary: #238636;
+                    --primary-hover: #2ea043;
+                    --btn-secondary: #21262d;
+                    --btn-secondary-hover: #30363d;
+                    --accent: #58a6ff;
                 }
                 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-                body { background: var(--bg); color: var(--text); padding: 20px; line-height: 1.5; }
-                .container { max-width: 800px; margin: 0 auto; }
-                header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-                h1 { font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-                .badge { background: #238636; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; font-weight: bold; }
-                .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
-                .card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
-                .card-title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--subtext); margin-bottom: 8px; font-weight: 600; }
-                .card-value { font-size: 20px; font-weight: bold; color: var(--text); }
-                .actions { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
-                button { background: var(--primary); color: #fff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; }
-                button:hover { background: var(--primary-hover); }
-                button.secondary { background: #2d333b; border: 1px solid var(--border); }
-                button.secondary:hover { background: #373e47; }
-                button.success { background: var(--success); }
-                section { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-                section h2 { font-size: 17px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
-                .form-group { margin-bottom: 16px; }
-                label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
-                .hint { font-size: 12px; color: var(--subtext); margin-top: 4px; }
-                input[type="text"], input[type="number"], input[type="password"], select, textarea {
-                    width: 100%; background: #0d1117; border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 8px 12px; font-size: 14px;
+                body { background: var(--bg); color: var(--text); padding: 24px 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+                .container { max-width: 860px; margin: 0 auto; }
+                
+                .material-symbols-outlined {
+                    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+                    font-size: 18px;
+                    line-height: 1;
+                    vertical-align: middle;
+                    display: inline-block;
                 }
-                input[type="range"] { width: 100%; accent-color: var(--primary); }
-                .checkbox-group { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-                .checkbox-group input { width: 16px; height: 16px; }
-                textarea { resize: vertical; min-height: 80px; font-family: monospace; }
-                #toast { display: none; position: fixed; bottom: 20px; right: 20px; background: #238636; color: #fff; padding: 12px 20px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); font-weight: 600; }
+
+                header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 24px;
+                    padding-bottom: 16px;
+                    border-bottom: 1px solid var(--border);
+                }
+                .brand { display: flex; align-items: center; gap: 12px; }
+                .brand-title { font-size: 20px; font-weight: 600; letter-spacing: -0.2px; }
+                .status-badge {
+                    background: #1f3b2b;
+                    color: #3fb950;
+                    border: 1px solid #238636;
+                    font-size: 11px;
+                    padding: 2px 8px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                .device-info { font-size: 13px; color: var(--subtext); }
+
+                .grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 24px;
+                }
+                .stat-card {
+                    background: var(--card);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 14px 16px;
+                }
+                .stat-title {
+                    font-size: 12px;
+                    font-weight: 500;
+                    color: var(--subtext);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 6px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                .stat-value {
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: var(--text);
+                }
+
+                .actions {
+                    display: flex;
+                    gap: 10px;
+                    margin-bottom: 24px;
+                    flex-wrap: wrap;
+                }
+
+                button, .btn {
+                    background: var(--primary);
+                    color: #fff;
+                    border: 1px solid transparent;
+                    padding: 8px 16px;
+                    border-radius: 6px;
+                    font-weight: 500;
+                    font-size: 13px;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    text-decoration: none;
+                    transition: background 0.15s ease, border-color 0.15s ease;
+                }
+                button:hover, .btn:hover { background: var(--primary-hover); }
+
+                button.secondary, .btn.secondary {
+                    background: var(--btn-secondary);
+                    color: var(--text);
+                    border: 1px solid var(--border);
+                }
+                button.secondary:hover, .btn.secondary:hover {
+                    background: var(--btn-secondary-hover);
+                    border-color: #8b949e;
+                }
+
+                .card-section {
+                    background: var(--card);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    padding: 20px 22px;
+                    margin-bottom: 20px;
+                }
+                .section-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 16px;
+                    padding-bottom: 10px;
+                    border-bottom: 1px solid var(--border);
+                }
+                .section-title {
+                    font-size: 15px;
+                    font-weight: 600;
+                    color: var(--text);
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .form-group { margin-bottom: 16px; }
+                .form-group:last-child { margin-bottom: 0; }
+                .form-row {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    gap: 14px;
+                    margin-bottom: 16px;
+                }
+                
+                label {
+                    display: block;
+                    font-size: 13px;
+                    font-weight: 500;
+                    margin-bottom: 6px;
+                    color: var(--text);
+                }
+                .hint {
+                    font-size: 12px;
+                    color: var(--subtext);
+                    margin-top: 4px;
+                }
+
+                input[type="text"],
+                input[type="number"],
+                input[type="password"],
+                select,
+                textarea {
+                    width: 100%;
+                    background: #090d13;
+                    border: 1px solid var(--border);
+                    border-radius: 6px;
+                    color: var(--text);
+                    padding: 8px 12px;
+                    font-size: 13px;
+                    font-family: inherit;
+                    transition: border-color 0.15s ease;
+                }
+                input[type="text"]:focus,
+                input[type="number"]:focus,
+                input[type="password"]:focus,
+                select:focus,
+                textarea:focus {
+                    outline: none;
+                    border-color: var(--border-focus);
+                }
+                input[type="range"] {
+                    width: 100%;
+                    accent-color: var(--accent);
+                }
+                
+                .checkbox-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    cursor: pointer;
+                    user-select: none;
+                }
+                .checkbox-group input[type="checkbox"] {
+                    width: 16px;
+                    height: 16px;
+                    accent-color: var(--primary);
+                    cursor: pointer;
+                }
+                
+                textarea {
+                    resize: vertical;
+                    min-height: 70px;
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                    font-size: 12px;
+                }
+
+                .input-with-button {
+                    display: flex;
+                    gap: 8px;
+                    align-items: center;
+                    flex-wrap: wrap;
+                }
+                .code-input {
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+                    color: var(--accent) !important;
+                }
+
+                .save-bar {
+                    display: flex;
+                    justify-content: flex-end;
+                    padding-top: 8px;
+                    margin-top: 12px;
+                }
+
+                #toast {
+                    display: none;
+                    position: fixed;
+                    bottom: 24px;
+                    right: 24px;
+                    background: #1f3b2b;
+                    color: #3fb950;
+                    border: 1px solid #238636;
+                    padding: 12px 20px;
+                    border-radius: 6px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+                    font-weight: 500;
+                    font-size: 13px;
+                    z-index: 1000;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
             </style>
         </head>
         <body>
             <div class="container">
                 <header>
-                    <h1>PadPanel <span class="badge">Online</span></h1>
-                    <div style="font-size: 13px; color: var(--subtext);">\(UIDevice.current.name)</div>
+                    <div class="brand">
+                        <span class="brand-title">PadPanel</span>
+                        <span class="status-badge">Connected</span>
+                    </div>
+                    <div class="device-info">\(UIDevice.current.name) &bull; \(hostIP):\(settings.webServerPort)</div>
                 </header>
 
                 <div class="grid">
-                    <div class="card">
-                        <div class="card-title">Battery</div>
-                        <div class="card-value">\(battery) <span style="font-size: 13px; font-weight: normal; color: var(--subtext);">(\(isCharging))</span></div>
+                    <div class="stat-card">
+                        <div class="stat-title"><span class="material-symbols-outlined">battery_std</span> Battery</div>
+                        <div class="stat-value">\(batteryPct) <span style="font-size: 12px; font-weight: normal; color: var(--subtext);">(\(chargingText))</span></div>
                     </div>
-                    <div class="card">
-                        <div class="card-title">Screensaver Mode</div>
-                        <div class="card-value" style="text-transform: capitalize;">\(settings.screensaverMode)</div>
+                    <div class="stat-card">
+                        <div class="stat-title"><span class="material-symbols-outlined">screen_lock_portrait</span> Screensaver</div>
+                        <div class="stat-value" style="text-transform: capitalize;">\(settings.screensaverMode)</div>
                     </div>
-                    <div class="card">
-                        <div class="card-title">Active URLs</div>
-                        <div class="card-value">\(settings.effectiveURLs.count) configured</div>
+                    <div class="stat-card">
+                        <div class="stat-title"><span class="material-symbols-outlined">tab</span> Active URLs</div>
+                        <div class="stat-value">\(settings.effectiveURLs.count) configured</div>
                     </div>
                 </div>
 
                 <div class="actions">
-                    <button class="secondary" onclick="sendAction('screensaver')">🌙 Trigger Screensaver</button>
-                    <button class="secondary" onclick="sendAction('wakeup')">☀️ Wake Screen</button>
-                    <button class="secondary" onclick="sendAction('reload')">🔄 Reload Browser</button>
+                    <button type="button" class="secondary" onclick="sendAction('screensaver')">
+                        <span class="material-symbols-outlined">bedtime</span> Trigger Screensaver
+                    </button>
+                    <button type="button" class="secondary" onclick="sendAction('wakeup')">
+                        <span class="material-symbols-outlined">light_mode</span> Wake Screen
+                    </button>
+                    <button type="button" class="secondary" onclick="sendAction('reload')">
+                        <span class="material-symbols-outlined">refresh</span> Reload WebViews
+                    </button>
                 </div>
 
-                <section style="background: #161b22; border-color: #388bfd;">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center;">
-                        <span>📦 Backup & Restore (padpanel-settings.conf)</span>
-                        <a href="/api/settings/export" download="padpanel-settings.conf" style="text-decoration: none;">
-                            <button type="button" class="secondary" style="font-size: 13px; padding: 6px 14px;">📥 Download Configuration</button>
-                        </a>
-                    </h2>
-                    <p style="font-size: 13px; color: var(--subtext); margin-bottom: 12px;">
-                        Download your current configuration as a plain-text <code>padpanel-settings.conf</code> file, or upload a previously saved file to restore all settings.
-                    </p>
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <input type="file" id="configFileUpload" accept=".conf,.txt,.json" style="max-width: 320px; font-size: 13px; padding: 6px;">
-                        <button type="button" class="secondary" onclick="importConfigFile()" style="font-size: 13px; padding: 7px 16px;">📤 Restore & Apply</button>
+                <div class="card-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="material-symbols-outlined">photo_camera</span> Screenshot Endpoint
+                        </div>
+                        <button type="button" class="secondary" onclick="regenerateToken()" style="font-size: 12px; padding: 4px 10px;">
+                            <span class="material-symbols-outlined" style="font-size: 15px;">autorenew</span> Regenerate Token
+                        </button>
                     </div>
-                </section>
+                    <p class="hint" style="margin-bottom: 12px;">
+                        Direct JPEG screenshot endpoint for Home Assistant Generic Camera entities or dashboard snapshots. Request is authenticated by the unique secret token in the URL.
+                    </p>
+                    <div class="input-with-button">
+                        <input type="text" id="screenshotUrlInput" class="code-input" value="\(screenshotURL)" readonly style="flex: 1; min-width: 260px; cursor: pointer;" onclick="this.select()">
+                        <button type="button" class="secondary" onclick="copyScreenshotUrl()">
+                            <span class="material-symbols-outlined">content_copy</span> Copy URL
+                        </button>
+                        <a href="\(screenshotURL)" target="_blank" class="btn secondary">
+                            <span class="material-symbols-outlined">open_in_new</span> View Snapshot
+                        </a>
+                    </div>
+                </div>
 
-                <section style="background: #161b22; border-color: #8957e5;">
-                    <h2 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                        <span>📸 Live iPad Screenshot Endpoint</span>
-                        <button type="button" class="secondary" onclick="regenerateToken()" style="font-size: 12px; padding: 4px 10px;">🔄 Regenerate Secret Token</button>
-                    </h2>
-                    <p style="font-size: 13px; color: var(--subtext); margin-bottom: 12px;">
-                        Direct JPEG screenshot endpoint of this iPad. Perfect for embedding in Home Assistant (as a Generic Camera entity or Dashboard snapshot) without requiring basic authentication headers.
-                    </p>
-                    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
-                        <input type="text" id="screenshotUrlInput" value="\(screenshotURL)" readonly style="background: #0d1117; font-family: monospace; font-size: 13px; flex: 1; min-width: 260px; color: #58a6ff; cursor: pointer;" onclick="this.select()">
-                        <button type="button" class="secondary" onclick="copyScreenshotUrl()">📋 Copy URL</button>
-                        <a href="\(screenshotURL)" target="_blank" style="text-decoration: none;">
-                            <button type="button" class="secondary">👁️ View Screenshot</button>
+                <div class="card-section">
+                    <div class="section-header">
+                        <div class="section-title">
+                            <span class="material-symbols-outlined">settings_backup_restore</span> Backup & Restore
+                        </div>
+                        <a href="/api/settings/export" download="padpanel-settings.conf" class="btn secondary" style="font-size: 12px; padding: 4px 12px;">
+                            <span class="material-symbols-outlined" style="font-size: 15px;">download</span> Download padpanel-settings.conf
                         </a>
                     </div>
-                </section>
+                    <p class="hint" style="margin-bottom: 12px;">
+                        Download your configuration as a plain-text <code>padpanel-settings.conf</code> file, or upload a previously saved file to restore all settings.
+                    </p>
+                    <div class="input-with-button">
+                        <input type="file" id="configFileUpload" accept=".conf,.txt,.json" style="max-width: 340px; font-size: 12px; padding: 6px;">
+                        <button type="button" class="secondary" onclick="importConfigFile()">
+                            <span class="material-symbols-outlined">upload</span> Restore & Apply
+                        </button>
+                    </div>
+                </div>
 
                 <form id="settingsForm" onsubmit="saveSettings(event)">
-                    <section>
-                        <h2>Main Dashboard URL</h2>
-                        <div class="form-group">
-                            <label>Primary Kiosk URL</label>
-                            <input type="text" name="mainDashboardURL" value="\(settings.mainDashboardURL)" placeholder="http://homeassistant.local:8123/...">
-                            <div class="hint">Main full-screen dashboard displayed when kiosk is awake.</div>
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">dashboard</span> Main Dashboard & Refresh
+                            </div>
                         </div>
-                    </section>
+                        <div class="form-group">
+                            <label>Main Dashboard URL</label>
+                            <input type="text" name="mainDashboardURL" class="code-input" value="\(settings.mainDashboardURL)" placeholder="http://homeassistant.local:8123/...">
+                            <div class="hint">Primary full-screen dashboard shown when the iPad is awake.</div>
+                        </div>
+                        <div class="form-group" style="margin-top: 14px;">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="enableAutoRefresh" \(settings.enableAutoRefresh ? "checked" : "")>
+                                <span>Auto refresh dashboard page</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Auto Refresh Interval (seconds)</label>
+                            <input type="number" name="autoRefreshInterval" value="\(Int(settings.autoRefreshInterval))" min="10" max="3600">
+                        </div>
+                    </div>
 
-                    <section>
-                        <h2>Screensaver & Brightness</h2>
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">brightness_medium</span> Screensaver & Display
+                            </div>
+                        </div>
                         <div class="form-group">
                             <label>Screensaver Option</label>
                             <select name="screensaverMode">
                                 <option value="clock" \(settings.screensaverMode == "clock" ? "selected" : "")>Clock & Sensors (Black screen with time & face/motion wake)</option>
                                 <option value="dimming" \(settings.screensaverMode == "dimming" ? "selected" : "")>Dimming Only (Dims screen, tap/sensor restores brightness)</option>
                                 <option value="urls" \(settings.screensaverMode == "urls" ? "selected" : "")>URLs Slideshow (Smoothly cycles URLs during screensaver)</option>
-                                <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming, no camera)</option>
+                                <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming)</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Inactivity Timeout (seconds)</label>
                             <input type="number" name="screensaverTimeout" value="\(Int(settings.screensaverTimeout))" min="10" max="3600">
                         </div>
-                        <div class="form-group">
-                            <label id="lblNormal">Screen Brightness - Normal (\(Int(settings.screenBrightnessNormal * 100))%)</label>
-                            <input type="range" id="sliderNormal" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.01" value="\(settings.screenBrightnessNormal)" oninput="liveUpdateBrightness('normal', this.value)">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label id="lblNormal">Normal Brightness (\(Int(settings.screenBrightnessNormal * 100))%)</label>
+                                <input type="range" id="sliderNormal" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.01" value="\(settings.screenBrightnessNormal)" oninput="liveUpdateBrightness('normal', this.value)">
+                            </div>
+                            <div class="form-group">
+                                <label id="lblDimmed">Dimmed Brightness (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
+                                <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label id="lblDimmed">Screen Brightness - Dimmed (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
-                            <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
-                        </div>
-                    </section>
+                    </div>
 
-                    <section>
-                        <h2>Device & WebUI Authentication</h2>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
-                                <span>Require password to unlock on-device Settings</span>
-                            </label>
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">videocam</span> Wakeup & Camera Detection
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Administrator Username</label>
-                            <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
-                        </div>
-                        <div class="form-group">
-                            <label>Administrator Password (leave blank for no password)</label>
-                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="No password set">
-                        </div>
-                    </section>
-
-                    <section>
-                        <h2>Wakeup & Camera</h2>
                         <div class="form-group">
                             <label>Wakeup Method</label>
                             <select name="wakeupMethod">
@@ -894,14 +1125,15 @@ final class WebServerManager: ObservableObject {
                                 <option value="motion" \(settings.wakeupMethod == "motion" ? "selected" : "")>Motion Detection (Camera Sensor)</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label>Motion Sensitivity (\(Int(settings.motionSensitivity * 100))% threshold)</label>
-                            <input type="range" name="motionSensitivity" min="0.02" max="0.25" step="0.01" value="\(settings.motionSensitivity)">
-                            <div class="hint">Lower threshold = more sensitive; higher = requires larger motion.</div>
-                        </div>
-                        <div class="form-group">
-                            <label>Face Detection Interval (seconds)</label>
-                            <input type="number" step="0.1" name="faceDetectionInterval" value="\(settings.faceDetectionInterval)" min="0.1" max="5.0">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Motion Sensitivity (\(Int(settings.motionSensitivity * 100))% threshold)</label>
+                                <input type="range" name="motionSensitivity" min="0.02" max="0.25" step="0.01" value="\(settings.motionSensitivity)">
+                            </div>
+                            <div class="form-group">
+                                <label>Face Detection Interval (seconds)</label>
+                                <input type="number" step="0.1" name="faceDetectionInterval" value="\(settings.faceDetectionInterval)" min="0.1" max="5.0">
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="checkbox-group">
@@ -909,50 +1141,149 @@ final class WebServerManager: ObservableObject {
                                 <span>Show camera debug info on screensaver</span>
                             </label>
                         </div>
-                    </section>
+                    </div>
 
-                    <section>
-                        <h2>Kiosk & Browser URLs</h2>
-                        <div class="form-group">
-                            <label>Slideshow / Kiosk URLs (one per line)</label>
-                            <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
-                            <div class="hint">First URL is your primary dashboard. Additional URLs cycle in slideshow or URL screensaver mode.</div>
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">auto_stories</span> Slideshow URLs
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>Slide Cycle Interval (seconds)</label>
+                            <label>Slideshow URLs (one per line)</label>
+                            <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
+                            <div class="hint">Secondary URLs cycled during slideshow screensaver mode.</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Slideshow Cycle Interval (seconds)</label>
                             <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
+                        </div>
+                    </div>
+
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">admin_panel_settings</span> Web Server & Security
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Web Server Port</label>
+                                <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
+                            </div>
+                            <div class="form-group">
+                                <label>Administrator Username</label>
+                                <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Administrator Password</label>
+                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="Enter password">
+                        </div>
+                        <div class="form-group" style="margin-top: 14px;">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
+                                <span>Require password to unlock settings on iPad screen</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">home</span> Home Assistant Integration
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="checkbox-group">
-                                <input type="checkbox" name="enableAutoRefresh" \(settings.enableAutoRefresh ? "checked" : "")>
-                                <span>Auto refresh page</span>
+                                <input type="checkbox" name="enableHomeAssistant" \(settings.enableHomeAssistant ? "checked" : "")>
+                                <span>Enable Home Assistant API integration</span>
                             </label>
                         </div>
-                        <div class="form-group">
-                            <label>Auto Refresh Interval (seconds)</label>
-                            <input type="number" name="autoRefreshInterval" value="\(Int(settings.autoRefreshInterval))" min="10" max="3600">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Home Assistant Host / IP</label>
+                                <input type="text" name="homeAssistantIP" value="\(settings.homeAssistantIP)" placeholder="homeassistant.local">
+                            </div>
+                            <div class="form-group">
+                                <label>Port</label>
+                                <input type="text" name="homeAssistantPort" value="\(settings.homeAssistantPort)" placeholder="8123">
+                            </div>
                         </div>
-                    </section>
+                        <div class="form-group">
+                            <label>Long-Lived Access Token</label>
+                            <input type="password" name="accessToken" class="code-input" value="\(settings.accessToken)" placeholder="Bearer token">
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="useHTTPS" \(settings.useHTTPS ? "checked" : "")>
+                                <span>Use HTTPS / WSS</span>
+                            </label>
+                        </div>
+                    </div>
 
-                    <section>
-                        <h2>Remote Web Server & Password</h2>
-                        <div class="form-group">
-                            <label>Web Server Port</label>
-                            <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">sensors</span> MQTT Integration
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>Web Server Password (leave blank for no password)</label>
-                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="enableMQTT" \(settings.enableMQTT ? "checked" : "")>
+                                <span>Enable MQTT broker connection</span>
+                            </label>
                         </div>
-                    </section>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Broker Host / IP</label>
+                                <input type="text" name="mqttBrokerIP" value="\(settings.mqttBrokerIP)" placeholder="192.168.1.100">
+                            </div>
+                            <div class="form-group">
+                                <label>Port</label>
+                                <input type="text" name="mqttPort" value="\(settings.mqttPort)" placeholder="1883">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Username (optional)</label>
+                                <input type="text" name="mqttUsername" value="\(settings.mqttUsername)">
+                            </div>
+                            <div class="form-group">
+                                <label>Password (optional)</label>
+                                <input type="password" name="mqttPassword" value="\(settings.mqttPassword)">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Topic Prefix</label>
+                                <input type="text" name="mqttTopicPrefix" value="\(settings.mqttTopicPrefix)" placeholder="homeassistant">
+                            </div>
+                            <div class="form-group">
+                                <label>Battery Report Interval (seconds)</label>
+                                <input type="number" name="mqttBatteryUpdateInterval" value="\(Int(settings.mqttBatteryUpdateInterval))" min="10" max="3600">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="mqttUseTLS" \(settings.mqttUseTLS ? "checked" : "")>
+                                <span>Use TLS/SSL connection</span>
+                            </label>
+                        </div>
+                    </div>
 
-                    <div style="text-align: right; margin-top: 24px;">
-                        <button type="submit" class="success" style="font-size: 16px; padding: 12px 28px;">💾 Save Settings</button>
+                    <div class="save-bar">
+                        <button type="submit" style="font-size: 14px; padding: 10px 24px;">
+                            <span class="material-symbols-outlined">save</span> Save Changes
+                        </button>
                     </div>
                 </form>
             </div>
 
-            <div id="toast">Settings Saved!</div>
+            <div id="toast" style="display:none;">
+                <span class="material-symbols-outlined">check_circle</span>
+                <span id="toastMessage">Settings saved successfully</span>
+            </div>
 
             <script>
                 let brightnessDebounce = null;
@@ -960,9 +1291,9 @@ final class WebServerManager: ObservableObject {
                     const num = parseFloat(val);
                     const pct = Math.round(num * 100);
                     if (type === 'normal') {
-                        document.getElementById('lblNormal').innerText = 'Screen Brightness - Normal (' + pct + '%)';
+                        document.getElementById('lblNormal').innerText = 'Normal Brightness (' + pct + '%)';
                     } else {
-                        document.getElementById('lblDimmed').innerText = 'Screen Brightness - Dimmed (' + pct + '%)';
+                        document.getElementById('lblDimmed').innerText = 'Dimmed Brightness (' + pct + '%)';
                     }
 
                     clearTimeout(brightnessDebounce);
@@ -980,15 +1311,16 @@ final class WebServerManager: ObservableObject {
                                 body: JSON.stringify(payload)
                             });
                         } catch(e) {
-                            console.error('Failed to update live brightness', e);
+                            console.error('Failed to update brightness', e);
                         }
                     }, 40);
                 }
 
                 function showToast(msg) {
                     const t = document.getElementById('toast');
-                    t.innerText = msg;
-                    t.style.display = 'block';
+                    const msgEl = document.getElementById('toastMessage');
+                    if (msgEl) msgEl.innerText = msg;
+                    t.style.display = 'flex';
                     setTimeout(() => { t.style.display = 'none'; }, 3000);
                 }
 
@@ -1010,14 +1342,14 @@ final class WebServerManager: ObservableObject {
                     input.select();
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(input.value).then(() => {
-                            showToast('Screenshot URL copied to clipboard!');
+                            showToast('Screenshot URL copied to clipboard');
                         }).catch(() => {
                             document.execCommand('copy');
-                            showToast('Screenshot URL copied!');
+                            showToast('Screenshot URL copied');
                         });
                     } else {
                         document.execCommand('copy');
-                        showToast('Screenshot URL copied!');
+                        showToast('Screenshot URL copied');
                     }
                 }
 
@@ -1026,8 +1358,8 @@ final class WebServerManager: ObservableObject {
                     try {
                         const res = await fetch('/api/regenerate-token', { method: 'POST' });
                         if (res.ok) {
-                            showToast('Secret token regenerated!');
-                            setTimeout(() => { window.location.reload(); }, 800);
+                            showToast('Secret token regenerated');
+                            setTimeout(() => { window.location.reload(); }, 600);
                         } else {
                             alert('Failed to regenerate token');
                         }
@@ -1039,7 +1371,7 @@ final class WebServerManager: ObservableObject {
                 async function importConfigFile() {
                     const input = document.getElementById('configFileUpload');
                     if (!input.files || input.files.length === 0) {
-                        alert('Please choose a padpanel-settings.conf file first.');
+                        alert('Please select a padpanel-settings.conf file first.');
                         return;
                     }
                     const file = input.files[0];
@@ -1053,8 +1385,8 @@ final class WebServerManager: ObservableObject {
                                 body: content
                             });
                             if (res.ok) {
-                                showToast('Configuration imported successfully!');
-                                setTimeout(() => { window.location.reload(); }, 1200);
+                                showToast('Configuration imported successfully');
+                                setTimeout(() => { window.location.reload(); }, 1000);
                             } else {
                                 const err = await res.text();
                                 alert('Import failed: ' + err);
@@ -1072,8 +1404,16 @@ final class WebServerManager: ObservableObject {
                     const fd = new FormData(form);
                     const payload = {};
                     fd.forEach((val, key) => { payload[key] = val; });
-                    payload['showDebugInfo'] = form.querySelector('[name=showDebugInfo]').checked;
-                    payload['enableAutoRefresh'] = form.querySelector('[name=enableAutoRefresh]').checked;
+                    
+                    // Boolean checkboxes
+                    const checkboxes = [
+                        'showDebugInfo', 'enableAutoRefresh', 'requireDeviceAuth',
+                        'enableHomeAssistant', 'useHTTPS', 'enableMQTT', 'mqttUseTLS'
+                    ];
+                    checkboxes.forEach(name => {
+                        const el = form.querySelector('[name=' + name + ']');
+                        if (el) payload[name] = el.checked;
+                    });
 
                     try {
                         const res = await fetch('/api/settings', {
@@ -1082,7 +1422,7 @@ final class WebServerManager: ObservableObject {
                             body: JSON.stringify(payload)
                         });
                         if (res.ok) {
-                            showToast('Settings saved successfully!');
+                            showToast('Settings saved successfully');
                         } else {
                             alert('Save failed: ' + res.statusText);
                         }
