@@ -577,6 +577,9 @@ extension MQTTManager: CocoaMQTTDelegate {
 
 // MARK: - Notification Extension
 extension Notification.Name {
+    static let settingsChanged = Notification.Name("SettingsChanged")
+    static let reloadAllWebViews = Notification.Name("ReloadAllWebViews")
+    static let openSettings = Notification.Name("OpenSettings")
     static let mqttScreensaverActivated = Notification.Name("MQTTScreensaverActivated")
     static let mqttConnected = Notification.Name("MQTTConnected")
     static let mqttDisconnected = Notification.Name("MQTTDisconnected")

@@ -490,7 +490,6 @@ final class WebServerManager: ObservableObject {
             let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             let window = scenes.flatMap { $0.windows }.first(where: { $0.isKeyWindow })
                 ?? scenes.flatMap { $0.windows }.first
-                ?? UIApplication.shared.windows.first
 
             guard let targetWindow = window else {
                 self.sendResponse(connection: connection, statusCode: 500, statusText: "Internal Server Error", contentType: "text/plain", body: "Window not accessible")

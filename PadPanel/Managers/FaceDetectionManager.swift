@@ -89,6 +89,8 @@ class FaceDetectionManager: NSObject, ObservableObject {
                     self.cameraStatusText = "Interrupted: Camera in use"
                 case .videoDeviceNotAvailableWithMultipleForegroundApps:
                     self.cameraStatusText = "Interrupted: Multi-app"
+                case .videoDeviceNotAvailableDueToSystemPressure:
+                    self.cameraStatusText = "Interrupted: System pressure"
                 @unknown default:
                     self.cameraStatusText = "Interrupted"
                 }
@@ -259,7 +261,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
             if !isRunningBefore {
                 self.captureSession?.startRunning()
             }
-            var isRunningAfter = self.captureSession?.isRunning ?? false
+            let isRunningAfter = self.captureSession?.isRunning ?? false
             
             // Retry once after 0.2s if not running yet
             if !isRunningAfter {
