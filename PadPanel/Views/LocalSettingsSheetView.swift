@@ -5,17 +5,12 @@ import WebKit
 /// A modal sheet presenting the local WebUI for on-device administration.
 /// Loads http://127.0.0.1:<webServerPort> in an embedded WKWebView with zero external dependencies.
 struct LocalSettingsSheetView: View {
-    @ObservedObject var settings = SettingsManager.shared
     @Binding var isPresented: Bool
-    
-    init(isPresented: Binding<Bool>) {
-        self._isPresented = isPresented
-    }
     
     var body: some View {
         NavigationView {
             LocalSettingsWebView(
-                port: settings.webServerPort,
+                port: SettingsManager.shared.webServerPort,
                 onClose: {
                     self.isPresented = false
                 }
@@ -27,7 +22,7 @@ struct LocalSettingsSheetView: View {
                     Button("Done") {
                         self.isPresented = false
                     }
-                    .font(.body.weight(.semibold))
+                    .font(.system(size: 17, weight: .semibold))
                 }
             }
         }

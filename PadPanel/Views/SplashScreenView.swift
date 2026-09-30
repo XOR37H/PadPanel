@@ -4,7 +4,6 @@ import Foundation
 
 struct SplashScreenView: View {
     @ObservedObject var settings: SettingsManager
-    @ObservedObject var webServer = WebServerManager.shared
     let isPermanent: Bool
     var onDismiss: (() -> Void)? = nil
     
@@ -19,8 +18,9 @@ struct SplashScreenView: View {
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
     
     private var displayURL: String {
-        if !webServer.serverURL.isEmpty {
-            return webServer.serverURL
+        let serverURL = WebServerManager.shared.serverURL
+        if !serverURL.isEmpty {
+            return serverURL
         }
         let ip = WebServerManager.getWiFiAddress() ?? "localhost"
         return "http://\(ip):\(settings.webServerPort)"
