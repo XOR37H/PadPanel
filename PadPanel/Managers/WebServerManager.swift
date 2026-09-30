@@ -327,6 +327,9 @@ final class WebServerManager: ObservableObject {
             let json = generateStatusJSON()
             sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: json)
 
+        case ("POST", "/api/brightness"):
+            handleBrightnessChange(request: request, connection: connection)
+
         case ("POST", "/api/settings"):
             handleSaveSettings(request: request, connection: connection)
 
@@ -336,6 +339,43 @@ final class WebServerManager: ObservableObject {
         default:
             sendResponse(connection: connection, statusCode: 404, statusText: "Not Found", contentType: "text/plain", body: "Endpoint not found")
         }
+    }
+
+    private func handleBrightnessChange(request: ParsedRequest, connection: NWConnection) {
+        guard let data = request.body.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            sendResponse(connection: connection, statusCode: 400, statusText: "Bad Request", contentType: "application/json", body: "{\"error\":\"Invalid JSON\"}")
+            return
+        }
+
+        var updatedNormal: Double? = nil
+        var updatedDimmed: Double? = nil
+
+        if let norm = json["screenBrightnessNormal"] {
+            if let d = norm as? Double { updatedNormal = d }
+            else if let s = norm as? String, let d = Double(s) { updatedNormal = d }
+        } else if let val = json["brightness"] {
+            if let d = val as? Double { updatedNormal = d }
+            else if let s = val as? String, let d = Double(s) { updatedNormal = d }
+        }
+
+        if let dim = json["screenBrightnessDimmed"] {
+            if let d = dim as? Double { updatedDimmed = d }
+            else if let s = dim as? String, let d = Double(s) { updatedDimmed = d }
+        }
+
+        DispatchQueue.main.async {
+            if let n = updatedNormal {
+                self.settings.screenBrightnessNormal = n
+                UIScreen.main.brightness = CGFloat(n)
+            }
+            if let d = updatedDimmed {
+                self.settings.screenBrightnessDimmed = d
+            }
+            self.settings.saveSettings()
+        }
+
+        sendResponse(connection: connection, statusCode: 200, statusText: "OK", contentType: "application/json", body: "{\"success\":true,\"brightness\":\(updatedNormal ?? settings.screenBrightnessNormal)}")
     }
 
     private func handleAction(request: ParsedRequest, connection: NWConnection) {
@@ -401,6 +441,14 @@ final class WebServerManager: ObservableObject {
         if let norm = dict["screenBrightnessNormal"] {
             if let d = norm as? Double { settings.screenBrightnessNormal = d }
             else if let s = norm as? String, let d = Double(s) { settings.screenBrightnessNormal = d }
+            UIScreen.main.brightness = CGFloat(settings.screenBrightnessNormal)
+        }
+        if let user = dict["webServerUsername"] as? String {
+            settings.webServerUsername = user
+        }
+        if let reqAuth = dict["requireDeviceAuth"] {
+            if let b = reqAuth as? Bool { settings.requireDeviceAuth = b }
+            else if let s = reqAuth as? String { settings.requireDeviceAuth = (s == "true" || s == "1" || s == "on") }
         }
         if let method = dict["wakeupMethod"] as? String { settings.wakeupMethod = method }
         if let sens = dict["motionSensitivity"] {
@@ -601,12 +649,30 @@ final class WebServerManager: ObservableObject {
                             <input type="number" name="screensaverTimeout" value="\(Int(settings.screensaverTimeout))" min="10" max="3600">
                         </div>
                         <div class="form-group">
-                            <label>Screen Brightness - Normal (Current: \(Int(settings.screenBrightnessNormal * 100))%)</label>
-                            <input type="range" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.05" value="\(settings.screenBrightnessNormal)">
+                            <label id="lblNormal">Screen Brightness - Normal (\(Int(settings.screenBrightnessNormal * 100))%)</label>
+                            <input type="range" id="sliderNormal" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.01" value="\(settings.screenBrightnessNormal)" oninput="liveUpdateBrightness('normal', this.value)">
                         </div>
                         <div class="form-group">
-                            <label>Screen Brightness - Dimmed (Current: \(Int(settings.screenBrightnessDimmed * 100))%)</label>
-                            <input type="range" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.05" value="\(settings.screenBrightnessDimmed)">
+                            <label id="lblDimmed">Screen Brightness - Dimmed (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
+                            <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
+                        </div>
+                    </section>
+
+                    <section>
+                        <h2>Device & WebUI Authentication</h2>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
+                                <span>Require password to unlock on-device Settings</span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Administrator Username</label>
+                            <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
+                        </div>
+                        <div class="form-group">
+                            <label>Administrator Password (leave blank for no password)</label>
+                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="No password set">
                         </div>
                     </section>
 
@@ -680,6 +746,36 @@ final class WebServerManager: ObservableObject {
             <div id="toast">Settings Saved!</div>
 
             <script>
+                let brightnessDebounce = null;
+                function liveUpdateBrightness(type, val) {
+                    const num = parseFloat(val);
+                    const pct = Math.round(num * 100);
+                    if (type === 'normal') {
+                        document.getElementById('lblNormal').innerText = 'Screen Brightness - Normal (' + pct + '%)';
+                    } else {
+                        document.getElementById('lblDimmed').innerText = 'Screen Brightness - Dimmed (' + pct + '%)';
+                    }
+
+                    clearTimeout(brightnessDebounce);
+                    brightnessDebounce = setTimeout(async () => {
+                        try {
+                            const payload = {};
+                            if (type === 'normal') {
+                                payload['screenBrightnessNormal'] = num;
+                            } else {
+                                payload['screenBrightnessDimmed'] = num;
+                            }
+                            await fetch('/api/brightness', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            });
+                        } catch(e) {
+                            console.error('Failed to update live brightness', e);
+                        }
+                    }, 40);
+                }
+
                 function showToast(msg) {
                     const t = document.getElementById('toast');
                     t.innerText = msg;

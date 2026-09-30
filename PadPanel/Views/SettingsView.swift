@@ -18,6 +18,7 @@ struct SettingsView: View {
                 homeAssistantSection
                 mqttSection
                 screensaverSection
+                deviceAuthSection
                 webServerSection
                 voiceSection
                 kioskSection
@@ -305,6 +306,35 @@ struct SettingsView: View {
         }
     }
     
+    private var deviceAuthSection: some View {
+        Section(
+            header: Text("Device & WebUI Authentication"),
+            footer: Text("These credentials protect on-device Kiosk Settings and provide HTTP Basic authentication for the Remote Web UI.")
+        ) {
+            Toggle("Require Password for Settings", isOn: $settings.requireDeviceAuth)
+            
+            HStack {
+                Text("Username")
+                Spacer()
+                TextField("admin", text: $settings.webServerUsername)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .frame(maxWidth: 160)
+            }
+            
+            HStack {
+                Text("Password")
+                Spacer()
+                SecureField("Optional password", text: $settings.webServerPassword)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .frame(maxWidth: 160)
+            }
+        }
+    }
+    
     private var webServerSection: some View {
         Section("Remote Web UI") {
             Toggle("Enable Remote Web UI", isOn: $settings.enableWebServer)
@@ -344,10 +374,18 @@ struct SettingsView: View {
                     .frame(maxWidth: 100)
                 }
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Password (optional)")
-                    SecureField("No password set", text: $settings.webServerPassword)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                HStack {
+                    Text("Authentication")
+                    Spacer()
+                    if settings.webServerPassword.isEmpty {
+                        Text("Open (No Password)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text("Protected (\(settings.webServerUsername))")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
                 }
                 
                 Text("Access this URL from any computer, phone, or browser on your local network to manage all settings and actions remotely.")
