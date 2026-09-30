@@ -20,39 +20,32 @@ struct SplashScreenView: View {
                 Spacer()
                 
                 // Centered Logo & Branding
-                VStack(spacing: 16) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.14, green: 0.17, blue: 0.22),
-                                        Color(red: 0.09, green: 0.11, blue: 0.15)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
+                ZStack {
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.14, green: 0.17, blue: 0.22),
+                                    Color(red: 0.09, green: 0.11, blue: 0.15)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
                             )
-                            .frame(width: 140, height: 140)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .stroke(Color.white.opacity(0.12), lineWidth: 1.5)
-                            )
-                            .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 10)
-                        
-                        // Custom PadPanel Logo in clean white
-                        PadPanelLogoView(size: CGSize(width: 105, height: 65), tintColor: .white)
-                            .scaleEffect(pulseAnimation ? 1.03 : 0.98)
-                            .animation(
-                                Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
-                                value: pulseAnimation
-                            )
-                    }
+                        )
+                        .frame(width: 230, height: 190)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 32, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1.5)
+                        )
+                        .shadow(color: Color.black.opacity(0.45), radius: 24, x: 0, y: 12)
                     
-                    Text("PadPanel")
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white)
-                        .tracking(1.0)
+                    // Custom PadPanel Logo (double size, clean white)
+                    PadPanelLogoView(size: CGSize(width: 185, height: 112), tintColor: .white)
+                        .scaleEffect(pulseAnimation ? 1.03 : 0.98)
+                        .animation(
+                            Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
+                            value: pulseAnimation
+                        )
                 }
                 
                 Spacer()
