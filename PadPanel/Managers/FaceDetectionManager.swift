@@ -145,11 +145,13 @@ class FaceDetectionManager: NSObject, ObservableObject {
         session.beginConfiguration()
         defer { session.commitConfiguration() }
         
-        // 640x480 (VGA) is universally supported by the front camera on all iPads including iPad Air 2
-        if session.canSetSessionPreset(.vga640x480) {
+        // 352x288 (CIF) is ideal for low-power face & motion detection on iPad Air 2 / iOS 15
+        if session.canSetSessionPreset(.cif352x288) {
+            session.sessionPreset = .cif352x288
+        } else if session.canSetSessionPreset(.vga640x480) {
             session.sessionPreset = .vga640x480
-        } else if session.canSetSessionPreset(.medium) {
-            session.sessionPreset = .medium
+        } else if session.canSetSessionPreset(.low) {
+            session.sessionPreset = .low
         }
         
         guard let frontCamera = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .front) else {
@@ -157,6 +159,28 @@ class FaceDetectionManager: NSObject, ObservableObject {
             AppLogger.app.warningConditional(errorMsg)
             DispatchQueue.main.async { self.cameraStatusText = errorMsg }
             return
+        }
+        
+        // Lock camera hardware to low frame rate (5 FPS) to conserve battery and avoid continuous sensor cycling
+        do {
+            try frontCamera.lockForConfiguration()
+            let targetFrameDuration = CMTime(value: 1, timescale: 5)
+            var matchedRange = false
+            for range in frontCamera.activeFormat.videoSupportedFrameRateRanges {
+                if range.minFrameRate <= 5.0 && 5.0 <= range.maxFrameRate {
+                    frontCamera.activeVideoMinFrameDuration = targetFrameDuration
+                    frontCamera.activeVideoMaxFrameDuration = targetFrameDuration
+                    matchedRange = true
+                    break
+                }
+            }
+            if !matchedRange, let slowestRange = frontCamera.activeFormat.videoSupportedFrameRateRanges.sorted(by: { $0.minFrameRate < $1.minFrameRate }).first {
+                frontCamera.activeVideoMinFrameDuration = slowestRange.maxFrameDuration
+                frontCamera.activeVideoMaxFrameDuration = slowestRange.maxFrameDuration
+            }
+            frontCamera.unlockForConfiguration()
+        } catch {
+            AppLogger.app.warningConditional("Could not set camera framerate: \(error.localizedDescription)")
         }
         
         guard let input = try? AVCaptureDeviceInput(device: frontCamera) else {
@@ -176,7 +200,8 @@ class FaceDetectionManager: NSObject, ObservableObject {
         
         videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.setSampleBufferDelegate(self, queue: sessionQueue)
-        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        // Use native Bi-Planar YUV format for 4x less memory bandwidth and zero-copy grayscale luminance
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
         
         guard session.canAddOutput(videoOutput) else {
             let errorMsg = "Cannot add videoOutput to session"
@@ -300,11 +325,15 @@ class FaceDetectionManager: NSObject, ObservableObject {
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
         
-        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else { return }
+        // In Bi-Planar YUV, plane 0 is the full-resolution 8-bit grayscale luminance plane
+        let planeIndex = CVPixelBufferIsPlanar(pixelBuffer) ? 0 : 0
+        guard let baseAddress = CVPixelBufferIsPlanar(pixelBuffer)
+            ? CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, planeIndex)
+            : CVPixelBufferGetBaseAddress(pixelBuffer) else { return }
         
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        let width = CVPixelBufferIsPlanar(pixelBuffer) ? CVPixelBufferGetWidthOfPlane(pixelBuffer, planeIndex) : CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferIsPlanar(pixelBuffer) ? CVPixelBufferGetHeightOfPlane(pixelBuffer, planeIndex) : CVPixelBufferGetHeight(pixelBuffer)
+        let bytesPerRow = CVPixelBufferIsPlanar(pixelBuffer) ? CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, planeIndex) : CVPixelBufferGetBytesPerRow(pixelBuffer)
         let buffer = baseAddress.assumingMemoryBound(to: UInt8.self)
         
         var currentSample = [UInt8]()
@@ -315,11 +344,7 @@ class FaceDetectionManager: NSObject, ObservableObject {
             let rowStart = y * bytesPerRow
             for col in 0..<gridCols {
                 let x = (width * (col + 1)) / (gridCols + 1)
-                let pixelOffset = rowStart + (x * 4)
-                let b = UInt32(buffer[pixelOffset])
-                let g = UInt32(buffer[pixelOffset + 1])
-                let r = UInt32(buffer[pixelOffset + 2])
-                let gray = UInt8((r + 2 * g + b) / 4)
+                let gray = buffer[rowStart + x]
                 currentSample.append(gray)
             }
         }
