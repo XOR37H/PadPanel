@@ -1,4 +1,4 @@
-# PadPanel - A Home automation kiosk for older iOS 15.x.x legacy devices.
+# PadPanel - A Home automation kiosk for legacy iOS 15.x.x devices.
 
 PadPanel is a lightweight iOS app built for legacy devices such as the iPad Air2.
 This is work progress, but PadPanel currently offers a veriaty of features that 
