@@ -15,6 +15,15 @@ struct ContentView: View {
 
     @State private var showingSettings = false
     @State private var showingAuthPrompt = false
+    @State private var splashTimerElapsed = false
+
+    private var isSplashVisible: Bool {
+        let hasDashboardURL = !settings.mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        if !hasDashboardURL {
+            return true
+        }
+        return !splashTimerElapsed
+    }
 
     var body: some View {
         ZStack {
@@ -33,7 +42,8 @@ struct ContentView: View {
                     .animation(.easeInOut(duration: 0.5), value: kioskManager.isScreensaverActive)
                     .allowsHitTesting(
                         index == slideshowManager.currentIndex &&
-                        !kioskManager.isScreensaverActive
+                        !kioskManager.isScreensaverActive &&
+                        !isSplashVisible
                     )
             }
 
@@ -56,6 +66,16 @@ struct ContentView: View {
                     .transition(.opacity)
             }
 
+            // Splash Screen Overlay (4-second launch splash; remains indefinitely if no dashboard URL is set)
+            if isSplashVisible {
+                SplashScreenView(
+                    settings: settings,
+                    isPermanent: settings.mainDashboardURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+                .transition(.opacity)
+                .zIndex(90)
+            }
+
             // Settings Access (Hidden gesture area)
             VStack {
                 HStack {
@@ -63,20 +83,29 @@ struct ContentView: View {
                     Rectangle()
                         .fill(Color.gray)
                         .cornerRadius(25)
-                        .opacity(0.1)
-                        .frame(width: 50, height: 50)
+                        .opacity(0.01)
+                        .frame(width: 70, height: 70)
+                        .contentShape(Rectangle())
                         .onTapGesture(count: 3) {
                             handleSettingsRequest()
                         }
                 }
                 Spacer()
             }
+            .zIndex(100)
         }
         .onAppear {
             setupApp()
             setupNotifications()
             slideshowManager.configure(settings: settings, kioskManager: kioskManager)
             slideshowManager.start()
+
+            // 4-second minimum splash timer
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                withAnimation(.easeInOut(duration: 0.8)) {
+                    splashTimerElapsed = true
+                }
+            }
         }
         .onDisappear {
             brightnessManager.restoreOriginalBrightness()

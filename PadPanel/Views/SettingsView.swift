@@ -428,7 +428,7 @@ struct SettingsView: View {
             header: Text("Device & WebUI Authentication"),
             footer: Text("These credentials protect on-device Kiosk Settings and provide HTTP Basic authentication for the Remote Web UI.")
         ) {
-            Toggle("Require Password for Settings", isOn: $settings.requireDeviceAuth.animation())
+            Toggle("Require Authentication", isOn: $settings.requireDeviceAuth.animation())
             
             if settings.requireDeviceAuth {
                 HStack {
@@ -496,7 +496,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Authentication")
                     Spacer()
-                    if settings.webServerPassword.isEmpty {
+                    if !settings.requireDeviceAuth || settings.webServerPassword.isEmpty {
                         Text("Open (No Password)")
                             .font(.caption)
                             .foregroundColor(.secondary)

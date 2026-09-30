@@ -246,11 +246,13 @@ final class WebServerManager: ObservableObject {
             return true
         }
 
-        let expectedPassword = settings.webServerPassword
-        let expectedUsername = settings.webServerUsername
-        if expectedPassword.isEmpty {
+        // If authentication is disabled or password is empty, allow access
+        if !settings.requireDeviceAuth || settings.webServerPassword.isEmpty {
             return true
         }
+
+        let expectedPassword = settings.webServerPassword
+        let expectedUsername = settings.webServerUsername
 
         // Check query param e.g. /?password=xyz or /api/status?password=xyz&username=admin
         if let queryStart = request.path.firstIndex(of: "?") {
@@ -1163,28 +1165,44 @@ final class WebServerManager: ObservableObject {
                     <div class="card-section">
                         <div class="section-header">
                             <div class="section-title">
-                                <span class="material-symbols-outlined">admin_panel_settings</span> Web Server & Security
+                                <span class="material-symbols-outlined">security</span> Device & WebUI Authentication
                             </div>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Web Server Port</label>
-                                <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
-                            </div>
+                        <div class="form-group">
+                            <label class="checkbox-group">
+                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
+                                <span>Require Authentication for Settings & WebUI</span>
+                            </label>
+                            <div class="hint">When enabled, the administrator credentials below protect on-device Kiosk Settings and HTTP access to this Remote WebUI.</div>
+                        </div>
+                        <div class="form-row" style="margin-top: 14px;">
                             <div class="form-group">
                                 <label>Administrator Username</label>
                                 <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
                             </div>
+                            <div class="form-group">
+                                <label>Administrator Password</label>
+                                <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="Enter password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-section">
+                        <div class="section-header">
+                            <div class="section-title">
+                                <span class="material-symbols-outlined">lan</span> Remote Web UI
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label>Administrator Password</label>
-                            <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="Enter password">
-                        </div>
-                        <div class="form-group" style="margin-top: 14px;">
                             <label class="checkbox-group">
-                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
-                                <span>Require password to unlock settings on iPad screen</span>
+                                <input type="checkbox" name="enableWebServer" \(settings.enableWebServer ? "checked" : "")>
+                                <span>Enable Remote Web UI Server</span>
                             </label>
+                        </div>
+                        <div class="form-group">
+                            <label>Web Server Port</label>
+                            <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
+                            <div class="hint">Default port is 8080. Accessible at <code>http://\(hostIP):\(settings.webServerPort)</code></div>
                         </div>
                     </div>
 
@@ -1407,7 +1425,7 @@ final class WebServerManager: ObservableObject {
                     
                     // Boolean checkboxes
                     const checkboxes = [
-                        'showDebugInfo', 'enableAutoRefresh', 'requireDeviceAuth',
+                        'showDebugInfo', 'enableAutoRefresh', 'requireDeviceAuth', 'enableWebServer',
                         'enableHomeAssistant', 'useHTTPS', 'enableMQTT', 'mqttUseTLS'
                     ];
                     checkboxes.forEach(name => {

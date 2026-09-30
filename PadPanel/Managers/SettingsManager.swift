@@ -12,7 +12,7 @@ class SettingsManager: ObservableObject {
     private var userDefaults: UserDefaults { _userDefaults }
     
     // MARK: - Published Settings
-    @Published var mainDashboardURL: String = "http://yourdashboard.local"
+    @Published var mainDashboardURL: String = ""
     @Published var enableHomeAssistant: Bool = false
     @Published var homeAssistantIP: String = "homeassistant.local"
     @Published var homeAssistantPort: String = "8123"
@@ -49,7 +49,7 @@ class SettingsManager: ObservableObject {
     @Published var webServerPort: Int = 8080
     @Published var webServerUsername: String = "admin"
     @Published var webServerPassword: String = "PadPanel"
-    @Published var requireDeviceAuth: Bool = false
+    @Published var requireDeviceAuth: Bool = true
     @Published var screenshotSecurityToken: String = SettingsManager.generateRandomSecurityToken()
     
     // Voice pipeline settings
@@ -174,7 +174,7 @@ class SettingsManager: ObservableObject {
             enableHomeAssistant = false
         }
 
-        mainDashboardURL = defaults.string(forKey: Keys.mainDashboardURL) ?? defaults.string(forKey: Keys.kioskURL) ?? "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+        mainDashboardURL = defaults.string(forKey: Keys.mainDashboardURL) ?? defaults.string(forKey: Keys.kioskURL) ?? ""
         homeAssistantIP = defaults.string(forKey: Keys.homeAssistantIP) ?? "homeassistant.local"
         homeAssistantPort = defaults.string(forKey: Keys.homeAssistantPort) ?? "8123"
         accessToken = defaults.string(forKey: Keys.accessToken) ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIwYTJmOTU1ZDYwNjY0YmI1YTc2NGU4ZDAyNTMwZTA1ZSIsImlhdCI6MTcxOTE0MTcxNiwiZXhwIjoyMDM0NTAxNzE2fQ.u2rLYy7Mc4VIQ9-x_25Ra2IRejvkXBsRX8lxvjBzPIM"
@@ -293,7 +293,11 @@ class SettingsManager: ObservableObject {
         
         webServerUsername = defaults.string(forKey: Keys.webServerUsername) ?? "admin"
         webServerPassword = defaults.string(forKey: Keys.webServerPassword) ?? "PadPanel"
-        requireDeviceAuth = defaults.bool(forKey: Keys.requireDeviceAuth)
+        if let auth = defaults.object(forKey: Keys.requireDeviceAuth) as? Bool {
+            requireDeviceAuth = auth
+        } else {
+            requireDeviceAuth = true
+        }
         
         if let token = defaults.string(forKey: Keys.screenshotSecurityToken), !token.isEmpty {
             screenshotSecurityToken = token
@@ -745,7 +749,7 @@ class SettingsManager: ObservableObject {
     
     // MARK: - Reset
     func resetToDefaults() {
-        mainDashboardURL = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
+        mainDashboardURL = ""
         enableHomeAssistant = false
         homeAssistantIP = "homeassistant.local"
         homeAssistantPort = "8123"
@@ -777,7 +781,7 @@ class SettingsManager: ObservableObject {
         webServerPort = 8080
         webServerUsername = "admin"
         webServerPassword = "PadPanel"
-        requireDeviceAuth = false
+        requireDeviceAuth = true
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

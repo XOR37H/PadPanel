@@ -1,0 +1,102 @@
+import SwiftUI
+
+struct SplashScreenView: View {
+    @ObservedObject var settings: SettingsManager
+    let isPermanent: Bool
+    
+    @State private var pulseAnimation = false
+    
+    private var hostIP: String {
+        WebServerManager.shared.serverURL.replacingOccurrences(of: "http://", with: "").components(separatedBy: ":").first ?? "localhost"
+    }
+
+    var body: some View {
+        ZStack {
+            // Dark grey background
+            Color(red: 0.07, green: 0.08, blue: 0.10)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                Spacer()
+                
+                // Centered Logo & Branding
+                VStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.14, green: 0.17, blue: 0.22),
+                                        Color(red: 0.09, green: 0.11, blue: 0.15)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 140, height: 140)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .stroke(Color.white.opacity(0.12), lineWidth: 1.5)
+                            )
+                            .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 10)
+                        
+                        // Vector Tablet / Display Icon in clean white
+                        Image(systemName: "ipad.landscape")
+                            .font(.system(size: 64, weight: .light))
+                            .foregroundColor(.white)
+                            .scaleEffect(pulseAnimation ? 1.03 : 0.98)
+                            .animation(
+                                Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true),
+                                value: pulseAnimation
+                            )
+                    }
+                    
+                    Text("PadPanel")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .tracking(1.0)
+                }
+                
+                Spacer()
+                
+                // Footer / Configuration status
+                if isPermanent {
+                    VStack(spacing: 10) {
+                        Text("No dashboard URL configured")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.white.opacity(0.9))
+                        
+                        VStack(spacing: 4) {
+                            Text("Configure via Remote WebUI:")
+                                .font(.system(size: 12))
+                                .foregroundColor(.white.opacity(0.5))
+                            
+                            Text("http://\(hostIP):\(settings.webServerPort)")
+                                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                .foregroundColor(Color(red: 0.35, green: 0.65, blue: 1.0))
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.06))
+                        .cornerRadius(8)
+                        
+                        Text("or tap top-right corner 3 times to open on-device Settings")
+                            .font(.system(size: 11))
+                            .foregroundColor(.white.opacity(0.4))
+                            .padding(.top, 4)
+                    }
+                    .padding(.bottom, 36)
+                    .transition(.opacity)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white.opacity(0.6)))
+                        .scaleEffect(0.9)
+                        .padding(.bottom, 48)
+                }
+            }
+        }
+        .onAppear {
+            pulseAnimation = true
+        }
+    }
+}
