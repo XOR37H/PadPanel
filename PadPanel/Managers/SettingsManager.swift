@@ -23,27 +23,27 @@ class SettingsManager: ObservableObject {
     @Published var mqttPassword: String = "iepoiph4ongiesah2zoZae4AiLa8bie9oochaahaiQuoush3or3kiequoo3xohye"
     @Published var mqttUseTLS: Bool = false
     @Published var mqttTopicPrefix: String = "homeassistant"
-    @Published var enableMQTT: Bool = true
+    @Published var enableMQTT: Bool = false
     @Published var mqttBatteryUpdateInterval: Double = 60.0 // seconds
     
     @Published var screensaverTimeout: Double = 60.0 // 1 minute default
     @Published var screenBrightnessDimmed: Double = 0.2
     @Published var screenBrightnessNormal: Double = 0.7 // Changed from 1.0 to more reasonable 70%
     
-    @Published var enableVoiceActivation: Bool = true
+    @Published var enableVoiceActivation: Bool = false
     @Published var kioskURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
-    @Published var screensaverMode: String = "clock" // "clock", "dimming", "urls", "off"
+    @Published var screensaverMode: String = "off" // "clock", "dimming", "urls", "off"
     @Published var faceDetectionInterval: Double = 1.0 // seconds between detections
     @Published var wakeupMethod: String = "face" // "face" or "motion"
     @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
-    @Published var showDebugInfo: Bool = true
+    @Published var showDebugInfo: Bool = false
     @Published var enableAutoRefresh: Bool = false
     @Published var autoRefreshInterval: Double = 300.0 // seconds, default 5m
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
     
     // Remote Web Server & Device Authentication settings
-    @Published var enableWebServer: Bool = true
+    @Published var enableWebServer: Bool = false
     @Published var webServerPort: Int = 8080
     @Published var webServerUsername: String = "admin"
     @Published var webServerPassword: String = ""
@@ -179,11 +179,11 @@ class SettingsManager: ObservableObject {
         
         mqttTopicPrefix = defaults.string(forKey: Keys.mqttTopicPrefix) ?? "homeassistant"
         
-        // enableMQTT defaults to true
+        // enableMQTT defaults to false
         if defaults.object(forKey: Keys.enableMQTT) != nil {
             enableMQTT = defaults.bool(forKey: Keys.enableMQTT)
         } else {
-            enableMQTT = true // Default value
+            enableMQTT = false // Default value: disabled
         }
         
         // Load double values with proper zero handling
@@ -202,7 +202,7 @@ class SettingsManager: ObservableObject {
         if let mode = defaults.string(forKey: Keys.screensaverMode) {
             screensaverMode = mode
         } else {
-            screensaverMode = "clock"
+            screensaverMode = "off" // Default value: disabled
         }
         
         if let brightness = defaults.object(forKey: Keys.screenBrightnessDimmed) as? Double {
@@ -214,14 +214,14 @@ class SettingsManager: ObservableObject {
         if let brightness = defaults.object(forKey: Keys.screenBrightnessNormal) as? Double {
             screenBrightnessNormal = brightness
         } else {
-            screenBrightnessNormal = 0.7 // Default to 70% instead of 100%
+            screenBrightnessNormal = 0.7 // Default to 70%
         }
         
-        // enableVoiceActivation defaults to true (matching property declaration)
+        // enableVoiceActivation defaults to false
         if defaults.object(forKey: Keys.enableVoiceActivation) != nil {
             enableVoiceActivation = defaults.bool(forKey: Keys.enableVoiceActivation)
         } else {
-            enableVoiceActivation = true // Default value
+            enableVoiceActivation = false // Default value: disabled
         }
         
         kioskURL = defaults.string(forKey: Keys.kioskURL) ?? "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
@@ -242,13 +242,13 @@ class SettingsManager: ObservableObject {
         if defaults.object(forKey: Keys.showDebugInfo) != nil {
             showDebugInfo = defaults.bool(forKey: Keys.showDebugInfo)
         } else {
-            showDebugInfo = true
+            showDebugInfo = false // Default value: disabled
         }
         
         if defaults.object(forKey: Keys.enableAutoRefresh) != nil {
             enableAutoRefresh = defaults.bool(forKey: Keys.enableAutoRefresh)
         } else {
-            enableAutoRefresh = false
+            enableAutoRefresh = false // Default value: disabled
         }
         
         if let interval = defaults.object(forKey: Keys.autoRefreshInterval) as? Double {
@@ -260,7 +260,7 @@ class SettingsManager: ObservableObject {
         if defaults.object(forKey: Keys.enableWebServer) != nil {
             enableWebServer = defaults.bool(forKey: Keys.enableWebServer)
         } else {
-            enableWebServer = true
+            enableWebServer = false // Default value: disabled
         }
         
         if let port = defaults.object(forKey: Keys.webServerPort) as? Int, port >= 1024, port <= 65535 {
@@ -513,11 +513,11 @@ class SettingsManager: ObservableObject {
         mqttPassword = ""
         mqttUseTLS = false
         mqttTopicPrefix = "homeassistant"
-        enableMQTT = true
+        enableMQTT = false
         mqttBatteryUpdateInterval = 60.0
         
         screensaverTimeout = 60.0
-        screensaverMode = "clock"
+        screensaverMode = "off"
         screenBrightnessDimmed = 0.2
         screenBrightnessNormal = 0.7
         enableVoiceActivation = false
@@ -525,12 +525,14 @@ class SettingsManager: ObservableObject {
         faceDetectionInterval = 1.0
         wakeupMethod = "face"
         motionSensitivity = 0.08
-        showDebugInfo = true
+        showDebugInfo = false
         enableAutoRefresh = false
         autoRefreshInterval = 300.0
-        enableWebServer = true
+        enableWebServer = false
         webServerPort = 8080
+        webServerUsername = "admin"
         webServerPassword = ""
+        requireDeviceAuth = false
         
         // Voice pipeline defaults
         voiceSampleRate = 16000

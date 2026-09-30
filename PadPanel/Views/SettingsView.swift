@@ -64,7 +64,7 @@ struct SettingsView: View {
     
     private var mqttSection: some View {
         Section("MQTT Integration") {
-            Toggle("Enable MQTT", isOn: $settings.enableMQTT)
+            Toggle("Enable MQTT", isOn: $settings.enableMQTT.animation())
             
             if settings.enableMQTT {
                 HStack {
@@ -229,22 +229,28 @@ struct SettingsView: View {
     
     private var screensaverSection: some View {
         Section("Screensaver") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Screensaver option")
-                Picker("Screensaver option", selection: $settings.screensaverMode) {
-                    Text("Clock & Sensors").tag("clock")
-                    Text("Dimming Only").tag("dimming")
-                    Text("Cycle URLs").tag("urls")
-                    Text("Off").tag("off")
+            Toggle("Enable Screensaver", isOn: Binding(
+                get: { settings.screensaverMode != "off" },
+                set: { isEnabled in
+                    settings.screensaverMode = isEnabled ? "clock" : "off"
                 }
-                .pickerStyle(.segmented)
-                
-                Text(screensaverModeDescription)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            ).animation())
             
             if settings.screensaverMode != "off" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Screensaver option")
+                    Picker("Screensaver option", selection: $settings.screensaverMode) {
+                        Text("Clock & Sensors").tag("clock")
+                        Text("Dimming Only").tag("dimming")
+                        Text("Cycle URLs").tag("urls")
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    Text(screensaverModeDescription)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Inactivity timeout: \(settings.screensaverTimeoutFormatted)")
                     Slider(value: $settings.screensaverTimeout, in: 10...1800, step: 10) {
@@ -260,14 +266,7 @@ struct SettingsView: View {
                     Text("Screen brightness (dimmed): \(Int(settings.screenBrightnessDimmed * 100))%")
                     Slider(value: $settings.screenBrightnessDimmed, in: 0.05...0.8, step: 0.05)
                 }
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Screen brightness (normal): \(Int(settings.screenBrightnessNormal * 100))%")
-                Slider(value: $settings.screenBrightnessNormal, in: 0.3...1.0, step: 0.05)
-            }
-
-            if settings.screensaverMode != "off" {
+                
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Wakeup method")
                     Picker("Wakeup method", selection: $settings.wakeupMethod) {
@@ -303,6 +302,11 @@ struct SettingsView: View {
                 
                 Toggle("Show camera debug info", isOn: $settings.showDebugInfo)
             }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Screen brightness (normal): \(Int(settings.screenBrightnessNormal * 100))%")
+                Slider(value: $settings.screenBrightnessNormal, in: 0.3...1.0, step: 0.05)
+            }
         }
     }
     
@@ -311,33 +315,35 @@ struct SettingsView: View {
             header: Text("Device & WebUI Authentication"),
             footer: Text("These credentials protect on-device Kiosk Settings and provide HTTP Basic authentication for the Remote Web UI.")
         ) {
-            Toggle("Require Password for Settings", isOn: $settings.requireDeviceAuth)
+            Toggle("Require Password for Settings", isOn: $settings.requireDeviceAuth.animation())
             
-            HStack {
-                Text("Username")
-                Spacer()
-                TextField("admin", text: $settings.webServerUsername)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                    .frame(maxWidth: 160)
-            }
-            
-            HStack {
-                Text("Password")
-                Spacer()
-                SecureField("Optional password", text: $settings.webServerPassword)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                    .autocapitalization(.none)
-                    .disableAutocorrection(true)
-                    .frame(maxWidth: 160)
+            if settings.requireDeviceAuth {
+                HStack {
+                    Text("Username")
+                    Spacer()
+                    TextField("admin", text: $settings.webServerUsername)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .frame(maxWidth: 160)
+                }
+                
+                HStack {
+                    Text("Password")
+                    Spacer()
+                    SecureField("Required password", text: $settings.webServerPassword)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                        .frame(maxWidth: 160)
+                }
             }
         }
     }
     
     private var webServerSection: some View {
         Section("Remote Web UI") {
-            Toggle("Enable Remote Web UI", isOn: $settings.enableWebServer)
+            Toggle("Enable Remote Web UI", isOn: $settings.enableWebServer.animation())
             
             if settings.enableWebServer {
                 if !webServer.serverURL.isEmpty {
@@ -352,7 +358,7 @@ struct SettingsView: View {
                     Text("Error: \(error)")
                         .font(.caption)
                         .foregroundColor(.red)
-                } else {
+                    } else {
                     HStack {
                         Text("Status")
                         Spacer()
@@ -397,34 +403,36 @@ struct SettingsView: View {
     
     private var voiceSection: some View {
         Section("Voice control") {
-            Toggle("Enable voice activation", isOn: $settings.enableVoiceActivation)
+            Toggle("Enable voice activation", isOn: $settings.enableVoiceActivation.animation())
             
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Sample rate: \(settings.voiceSampleRate) Hz")
-                let supportedSampleRates: [Int] = [8000, 12000, 16000, 22050, 32000, 44100]
-                Picker("Sample rate", selection: $settings.voiceSampleRate) {
-                    ForEach(supportedSampleRates, id: \.self) { rate in
-                        Text("\(rate / 1000) kHz").tag(rate)
+            if settings.enableVoiceActivation {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Sample rate: \(settings.voiceSampleRate) Hz")
+                    let supportedSampleRates: [Int] = [8000, 12000, 16000, 22050, 32000, 44100]
+                    Picker("Sample rate", selection: $settings.voiceSampleRate) {
+                        ForEach(supportedSampleRates, id: \.self) { rate in
+                            Text("\(rate / 1000) kHz").tag(rate)
+                        }
                     }
+                    .pickerStyle(.menu)
                 }
-                .pickerStyle(.menu)
-            }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Timeout: \(settings.voiceTimeout)s")
-                Slider(value: Binding(
-                    get: { Double(settings.voiceTimeout) },
-                    set: { settings.voiceTimeout = Int($0) }
-                ), in: 1...60, step: 1)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Porcupine Access Token")
-                SecureField("Long-lived Access Token", text: $settings.porcupineAccessToken)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-                Text("Create a Long-lived Access Token the Picovoice web console")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Timeout: \(settings.voiceTimeout)s")
+                    Slider(value: Binding(
+                        get: { Double(settings.voiceTimeout) },
+                        set: { settings.voiceTimeout = Int($0) }
+                    ), in: 1...60, step: 1)
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Porcupine Access Token")
+                    SecureField("Long-lived Access Token", text: $settings.porcupineAccessToken)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    Text("Create a Long-lived Access Token the Picovoice web console")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
@@ -443,7 +451,7 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            Toggle("Auto refresh page", isOn: $settings.enableAutoRefresh)
+            Toggle("Auto refresh page", isOn: $settings.enableAutoRefresh.animation())
             
             if settings.enableAutoRefresh {
                 VStack(alignment: .leading, spacing: 8) {
