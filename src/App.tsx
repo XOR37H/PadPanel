@@ -384,7 +384,7 @@ export function App() {
                       <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">POST</span>
                       <span className="text-white font-semibold">/api/action</span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1">Dispatches remote actions: <code className="text-cyan-300">screensaver</code>, <code className="text-cyan-300">wakeup</code>, <code className="text-cyan-300">reload</code>.</p>
+                    <p className="text-xs text-slate-400 mt-1">Dispatches remote actions: <code className="text-cyan-300">screensaver</code>, <code className="text-cyan-300">sleep</code>, <code className="text-cyan-300">wakeup</code>, <code className="text-cyan-300">reload</code>.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <select
@@ -393,6 +393,7 @@ export function App() {
                       className="bg-slate-900 border border-slate-700 text-xs rounded px-2 py-1 text-slate-200"
                     >
                       <option value="wakeup">wakeup</option>
+                      <option value="sleep">sleep</option>
                       <option value="screensaver">screensaver</option>
                       <option value="reload">reload</option>
                     </select>

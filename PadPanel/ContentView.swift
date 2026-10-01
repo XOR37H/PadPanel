@@ -227,6 +227,16 @@ struct ContentView: View {
         ) { _ in
             kioskManager.exitScreensaver()
         }
+
+        // Remote deep sleep notification
+        NotificationCenter.default.addObserver(
+            forName: .remoteSleep,
+            object: nil,
+            queue: .main
+        ) { _ in
+            AppLogger.app.info("Activating deep sleep from remote command")
+            kioskManager.activateDeepSleep()
+        }
     }
 
     private func handleScreensaverActivated() {

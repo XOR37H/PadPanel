@@ -22,6 +22,8 @@ import {
   Radio,
   Layers,
   User,
+  Zap,
+  Moon,
 } from "lucide-react";
 
 interface WebUIPortalModalProps {
@@ -30,7 +32,7 @@ interface WebUIPortalModalProps {
   settings: PadPanelSettings;
   onSaveSettings: (newSettings: PadPanelSettings) => void;
   onLiveSettingChange?: (key: keyof PadPanelSettings, value: any) => void;
-  onTriggerAction: (action: "screensaver" | "wakeup" | "reload") => void;
+  onTriggerAction: (action: "screensaver" | "wakeup" | "reload" | "sleep") => void;
   isScreensaverActive: boolean;
   batteryLevel: number;
   isCharging: boolean;
@@ -374,41 +376,50 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
                   {/* Remote Action Buttons */}
                   <div className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800">
                     <h3 className="text-sm font-semibold text-white mb-3 flex items-center space-x-2">
-                      <Server className="w-4 h-4 text-indigo-400" />
-                      <span>Remote Trigger Actions (POST /api/action)</span>
+                      <Zap className="w-4 h-4 text-indigo-400" />
+                      <span>Quick triggers</span>
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
                       <button
                         onClick={() => onTriggerAction("screensaver")}
-                        className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-start space-x-3"
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-center space-x-2.5"
                       >
-                        <Power className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-xs font-semibold text-white">Trigger Screensaver</div>
-                          <div className="text-[11px] text-slate-400">Action: <code>screensaver</code></div>
-                        </div>
+                        <Power className="w-4 h-4 text-amber-400 shrink-0" />
+                        <span className="text-xs font-semibold text-white">Screensaver</span>
+                      </button>
+
+                      <button
+                        onClick={() => onTriggerAction("sleep")}
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-center space-x-2.5"
+                      >
+                        <Moon className="w-4 h-4 text-purple-400 shrink-0" />
+                        <span className="text-xs font-semibold text-white">Sleep</span>
                       </button>
 
                       <button
                         onClick={() => onTriggerAction("wakeup")}
-                        className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-start space-x-3"
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-center space-x-2.5"
                       >
-                        <Sun className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-xs font-semibold text-white">Wake Display</div>
-                          <div className="text-[11px] text-slate-400">Action: <code>wakeup</code></div>
-                        </div>
+                        <Sun className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span className="text-xs font-semibold text-white">Wake</span>
                       </button>
+
+                      <a
+                        href={`${webServerAddress}/api/screenshot?token=padpanel`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-center space-x-2.5"
+                      >
+                        <Camera className="w-4 h-4 text-sky-400 shrink-0" />
+                        <span className="text-xs font-semibold text-white">Screenshot</span>
+                      </a>
 
                       <button
                         onClick={() => onTriggerAction("reload")}
-                        className="p-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-start space-x-3"
+                        className="p-3 rounded-xl bg-slate-900 hover:bg-slate-800 active:scale-95 border border-slate-700/80 text-left transition flex items-center space-x-2.5"
                       >
-                        <RefreshCw className="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="text-xs font-semibold text-white">Reload WebViews</div>
-                          <div className="text-[11px] text-slate-400">Action: <code>reload</code></div>
-                        </div>
+                        <RefreshCw className="w-4 h-4 text-blue-400 shrink-0" />
+                        <span className="text-xs font-semibold text-white">Reload pages</span>
                       </button>
                     </div>
                   </div>

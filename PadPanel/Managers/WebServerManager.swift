@@ -620,6 +620,8 @@ final class WebServerManager: ObservableObject {
             switch action {
             case "screensaver":
                 NotificationCenter.default.post(name: .mqttScreensaverActivated, object: nil)
+            case "sleep":
+                NotificationCenter.default.post(name: .remoteSleep, object: nil)
             case "wakeup":
                 NotificationCenter.default.post(name: .remoteWakeup, object: nil)
             case "reload":
@@ -934,11 +936,70 @@ final class WebServerManager: ObservableObject {
                     color: var(--text);
                 }
 
+                .quick-triggers-section {
+                    margin-bottom: 24px;
+                }
+                .quick-triggers-header {
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: var(--subtext);
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    margin-bottom: 10px;
+                }
+
                 .actions {
                     display: flex;
                     gap: 10px;
-                    margin-bottom: 24px;
                     flex-wrap: wrap;
+                }
+
+                .tabs-nav {
+                    display: flex;
+                    gap: 8px;
+                    margin-bottom: 24px;
+                    border-bottom: 1px solid var(--border);
+                    padding-bottom: 10px;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .tab-btn {
+                    background: transparent;
+                    border: 1px solid transparent;
+                    border-radius: 6px;
+                    color: var(--subtext);
+                    padding: 8px 16px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    white-space: nowrap;
+                    transition: all 0.15s ease;
+                }
+                .tab-btn:hover {
+                    color: var(--text);
+                    background: rgba(255, 255, 255, 0.05);
+                }
+                .tab-btn.active {
+                    color: #fff;
+                    background: var(--primary);
+                    border-color: #388bfd;
+                }
+                .tab-panel {
+                    display: none;
+                }
+                .tab-panel.active {
+                    display: block;
+                    animation: tabFadeIn 0.15s ease-in-out;
+                }
+                @keyframes tabFadeIn {
+                    from { opacity: 0; transform: translateY(3px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
 
                 button, .btn {
@@ -1076,10 +1137,19 @@ final class WebServerManager: ObservableObject {
                 }
 
                 .save-bar {
+                    position: sticky;
+                    bottom: 16px;
                     display: flex;
                     justify-content: flex-end;
-                    padding-top: 8px;
-                    margin-top: 12px;
+                    padding: 12px 18px;
+                    margin-top: 24px;
+                    background: rgba(13, 17, 23, 0.92);
+                    backdrop-filter: blur(10px);
+                    -webkit-backdrop-filter: blur(10px);
+                    border: 1px solid var(--border);
+                    border-radius: 8px;
+                    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+                    z-index: 100;
                 }
 
                 #toast {
@@ -1133,308 +1203,344 @@ final class WebServerManager: ObservableObject {
                     </div>
                 </div>
 
-                <div class="actions">
-                    <button type="button" class="secondary" onclick="sendAction('screensaver')">
-                        <span class="material-symbols-outlined">bedtime</span> Trigger Screensaver
-                    </button>
-                    <button type="button" class="secondary" onclick="sendAction('wakeup')">
-                        <span class="material-symbols-outlined">light_mode</span> Wake Screen
-                    </button>
-                    <button type="button" class="secondary" onclick="sendAction('reload')">
-                        <span class="material-symbols-outlined">refresh</span> Reload WebViews
-                    </button>
-                </div>
-
-                <div class="card-section">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="material-symbols-outlined">photo_camera</span> Screenshot Endpoint
-                        </div>
-                        <button type="button" class="secondary" onclick="regenerateToken()" style="font-size: 12px; padding: 4px 10px;">
-                            <span class="material-symbols-outlined" style="font-size: 15px;">autorenew</span> Regenerate Token
-                        </button>
+                <div class="quick-triggers-section">
+                    <div class="quick-triggers-header">
+                        <span class="material-symbols-outlined">bolt</span>
+                        <span>Quick triggers</span>
                     </div>
-                    <p class="hint" style="margin-bottom: 12px;">
-                        Direct JPEG screenshot endpoint for Home Assistant Generic Camera entities or dashboard snapshots. Request is authenticated by the unique secret token in the URL.
-                    </p>
-                    <div class="input-with-button">
-                        <input type="text" id="screenshotUrlInput" class="code-input" value="\(screenshotURL)" readonly style="flex: 1; min-width: 260px; cursor: pointer;" onclick="this.select()">
-                        <button type="button" class="secondary" onclick="copyScreenshotUrl()">
-                            <span class="material-symbols-outlined">content_copy</span> Copy URL
+                    <div class="actions">
+                        <button type="button" class="secondary" onclick="sendAction('screensaver')">
+                            <span class="material-symbols-outlined">bedtime</span> Screensaver
+                        </button>
+                        <button type="button" class="secondary" onclick="sendAction('sleep')">
+                            <span class="material-symbols-outlined">power_settings_new</span> Sleep
+                        </button>
+                        <button type="button" class="secondary" onclick="sendAction('wakeup')">
+                            <span class="material-symbols-outlined">light_mode</span> Wake
                         </button>
                         <a href="\(screenshotURL)" target="_blank" class="btn secondary">
-                            <span class="material-symbols-outlined">open_in_new</span> View Snapshot
+                            <span class="material-symbols-outlined">photo_camera</span> Screenshot
                         </a>
+                        <button type="button" class="secondary" onclick="sendAction('reload')">
+                            <span class="material-symbols-outlined">refresh</span> Reload pages
+                        </button>
                     </div>
                 </div>
 
-                <div class="card-section">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <span class="material-symbols-outlined">settings_backup_restore</span> Backup & Restore
-                        </div>
-                        <a href="/api/settings/export" download="padpanel-settings.conf" class="btn secondary" style="font-size: 12px; padding: 4px 12px;">
-                            <span class="material-symbols-outlined" style="font-size: 15px;">download</span> Download padpanel-settings.conf
-                        </a>
-                    </div>
-                    <p class="hint" style="margin-bottom: 12px;">
-                        Download your configuration as a plain-text <code>padpanel-settings.conf</code> file, or upload a previously saved file to restore all settings.
-                    </p>
-                    <div class="input-with-button">
-                        <input type="file" id="configFileUpload" accept=".conf,.txt,.json" style="max-width: 340px; font-size: 12px; padding: 6px;">
-                        <button type="button" class="secondary" onclick="importConfigFile()">
-                            <span class="material-symbols-outlined">upload</span> Restore & Apply
-                        </button>
-                    </div>
+                <div class="tabs-nav" role="tablist">
+                    <button type="button" class="tab-btn active" data-tab="tab-main" onclick="switchTab('tab-main', this)">
+                        <span class="material-symbols-outlined">tune</span> Main
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-display" onclick="switchTab('tab-display', this)">
+                        <span class="material-symbols-outlined">display_settings</span> Display
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-integrations" onclick="switchTab('tab-integrations', this)">
+                        <span class="material-symbols-outlined">hub</span> Integrations
+                    </button>
+                    <button type="button" class="tab-btn" data-tab="tab-auth" onclick="switchTab('tab-auth', this)">
+                        <span class="material-symbols-outlined">security</span> Authentication
+                    </button>
                 </div>
 
                 <form id="settingsForm" onsubmit="saveSettings(event)">
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">dashboard</span> Main Dashboard & Refresh
+                    <!-- Tab: Main (Default) -->
+                    <div id="tab-main" class="tab-panel active">
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">dashboard</span> Main dashboard
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Main Dashboard URL</label>
+                                <input type="text" name="mainDashboardURL" class="code-input" value="\(settings.mainDashboardURL)" placeholder="http://homeassistant.local:8123/...">
+                                <div class="hint">Primary full-screen dashboard shown when the iPad is awake.</div>
+                            </div>
+                            <div class="form-group" style="margin-top: 14px;">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableAutoRefresh" \(settings.enableAutoRefresh ? "checked" : "")>
+                                    <span>Auto refresh dashboard page</span>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Auto Refresh Interval (seconds)</label>
+                                <input type="number" name="autoRefreshInterval" value="\(Int(settings.autoRefreshInterval))" min="10" max="3600">
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Main Dashboard URL</label>
-                            <input type="text" name="mainDashboardURL" class="code-input" value="\(settings.mainDashboardURL)" placeholder="http://homeassistant.local:8123/...">
-                            <div class="hint">Primary full-screen dashboard shown when the iPad is awake.</div>
-                        </div>
-                        <div class="form-group" style="margin-top: 14px;">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="enableAutoRefresh" \(settings.enableAutoRefresh ? "checked" : "")>
-                                <span>Auto refresh dashboard page</span>
-                            </label>
-                        </div>
-                        <div class="form-group">
-                            <label>Auto Refresh Interval (seconds)</label>
-                            <input type="number" name="autoRefreshInterval" value="\(Int(settings.autoRefreshInterval))" min="10" max="3600">
-                        </div>
-                    </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">brightness_medium</span> Screensaver & Display
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Screensaver Option</label>
-                            <select name="screensaverMode">
-                                <option value="clock" \(settings.screensaverMode == "clock" ? "selected" : "")>Clock & Sensors (Black screen with time & face/motion wake)</option>
-                                <option value="dimming" \(settings.screensaverMode == "dimming" ? "selected" : "")>Dimming Only (Dims screen, tap/sensor restores brightness)</option>
-                                <option value="urls" \(settings.screensaverMode == "urls" ? "selected" : "")>URLs Slideshow (Smoothly cycles URLs during screensaver)</option>
-                                <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Inactivity Timeout (seconds)</label>
-                            <input type="number" name="screensaverTimeout" value="\(Int(settings.screensaverTimeout))" min="10" max="3600">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label id="lblNormal">Normal Brightness (\(Int(settings.screenBrightnessNormal * 100))%)</label>
-                                <input type="range" id="sliderNormal" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.01" value="\(settings.screenBrightnessNormal)" oninput="liveUpdateBrightness('normal', this.value)">
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">lan</span> Remote Web UI
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label id="lblDimmed">Dimmed Brightness (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
-                                <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableWebServer" \(settings.enableWebServer ? "checked" : "")>
+                                    <span>Enable Remote Web UI Server</span>
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>Web Server Port</label>
+                                <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
+                                <div class="hint">Default port is 8080. Accessible at <code>http://\(hostIP):\(settings.webServerPort)</code></div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">bedtime</span> Deep Sleep (Power Saving)
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">photo_camera</span> Screenshot Endpoint
+                                </div>
+                                <button type="button" class="secondary" onclick="regenerateToken()" style="font-size: 12px; padding: 4px 10px;">
+                                    <span class="material-symbols-outlined" style="font-size: 15px;">autorenew</span> Regenerate Token
+                                </button>
+                            </div>
+                            <p class="hint" style="margin-bottom: 12px;">
+                                Direct JPEG screenshot endpoint for Home Assistant Generic Camera entities or dashboard snapshots. Request is authenticated by the unique secret token in the URL.
+                            </p>
+                            <div class="input-with-button">
+                                <input type="text" id="screenshotUrlInput" class="code-input" value="\(screenshotURL)" readonly style="flex: 1; min-width: 260px; cursor: pointer;" onclick="this.select()">
+                                <button type="button" class="secondary" onclick="copyScreenshotUrl()">
+                                    <span class="material-symbols-outlined">content_copy</span> Copy URL
+                                </button>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="enableDeepSleep" \(settings.enableDeepSleep ? "checked" : "")>
-                                <span>Enable Deep Sleep</span>
-                            </label>
-                            <div class="hint">Completely turns off the camera sensor, blacks out the screen to minimum brightness, and halts background rendering after extended inactivity to maximize battery life. Tap the screen to wake instantly.</div>
-                        </div>
-                        <div class="form-group" style="margin-top: 14px;">
-                            <label>No Activity Timeout (seconds: 1800s = 30m, 3600s = 1h, 14400s = 4h)</label>
-                            <input type="number" name="deepSleepTimeout" value="\(Int(settings.deepSleepTimeout))" min="1800" max="14400" step="300">
-                        </div>
-                    </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">videocam</span> Wakeup & Camera Detection
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">settings_backup_restore</span> Backup & Restore
+                                </div>
+                                <a href="/api/settings/export" download="padpanel-settings.conf" class="btn secondary" style="font-size: 12px; padding: 4px 12px;">
+                                    <span class="material-symbols-outlined" style="font-size: 15px;">download</span> Download padpanel-settings.conf
+                                </a>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Wakeup Method</label>
-                            <select name="wakeupMethod">
-                                <option value="face" \(settings.wakeupMethod == "face" ? "selected" : "")>Face Detection (Vision)</option>
-                                <option value="motion" \(settings.wakeupMethod == "motion" ? "selected" : "")>Motion Detection (Camera Sensor)</option>
-                            </select>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Motion Sensitivity (\(Int(settings.motionSensitivity * 100))% threshold)</label>
-                                <input type="range" name="motionSensitivity" min="0.02" max="0.25" step="0.01" value="\(settings.motionSensitivity)">
-                            </div>
-                            <div class="form-group">
-                                <label>Face Detection Interval (seconds)</label>
-                                <input type="number" step="0.1" name="faceDetectionInterval" value="\(settings.faceDetectionInterval)" min="0.1" max="5.0">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="showDebugInfo" \(settings.showDebugInfo ? "checked" : "")>
-                                <span>Show camera debug info on screensaver</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">auto_stories</span> Slideshow URLs
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Slideshow URLs (one per line)</label>
-                            <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
-                            <div class="hint">Secondary URLs cycled during slideshow screensaver mode.</div>
-                        </div>
-                        <div class="form-group">
-                            <label>Slideshow Cycle Interval (seconds)</label>
-                            <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
-                        </div>
-                    </div>
-
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">security</span> Device & WebUI Authentication
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
-                                <span>Require Authentication for Settings & WebUI</span>
-                            </label>
-                            <div class="hint">When enabled, the administrator credentials below protect on-device Kiosk Settings and HTTP access to this Remote WebUI.</div>
-                        </div>
-                        <div class="form-row" style="margin-top: 14px;">
-                            <div class="form-group">
-                                <label>Administrator Username</label>
-                                <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
-                            </div>
-                            <div class="form-group">
-                                <label>Administrator Password</label>
-                                <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="Enter password">
+                            <p class="hint" style="margin-bottom: 12px;">
+                                Download your configuration as a plain-text <code>padpanel-settings.conf</code> file, or upload a previously saved file to restore all settings.
+                            </p>
+                            <div class="input-with-button">
+                                <input type="file" id="configFileUpload" accept=".conf,.txt,.json" style="max-width: 340px; font-size: 12px; padding: 6px;">
+                                <button type="button" class="secondary" onclick="importConfigFile()">
+                                    <span class="material-symbols-outlined">upload</span> Restore & Apply
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">lan</span> Remote Web UI
+                    <!-- Tab: Display -->
+                    <div id="tab-display" class="tab-panel">
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">brightness_medium</span> Screensaver
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Screensaver Option</label>
+                                <select name="screensaverMode">
+                                    <option value="clock" \(settings.screensaverMode == "clock" ? "selected" : "")>Clock & Sensors (Black screen with time & face/motion wake)</option>
+                                    <option value="dimming" \(settings.screensaverMode == "dimming" ? "selected" : "")>Dimming Only (Dims screen, tap/sensor restores brightness)</option>
+                                    <option value="urls" \(settings.screensaverMode == "urls" ? "selected" : "")>URLs Slideshow (Smoothly cycles URLs during screensaver)</option>
+                                    <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Inactivity Timeout (seconds)</label>
+                                <input type="number" name="screensaverTimeout" value="\(Int(settings.screensaverTimeout))" min="10" max="3600">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label id="lblNormal">Normal Brightness (\(Int(settings.screenBrightnessNormal * 100))%)</label>
+                                    <input type="range" id="sliderNormal" name="screenBrightnessNormal" min="0.3" max="1.0" step="0.01" value="\(settings.screenBrightnessNormal)" oninput="liveUpdateBrightness('normal', this.value)">
+                                </div>
+                                <div class="form-group">
+                                    <label id="lblDimmed">Dimmed Brightness (\(Int(settings.screenBrightnessDimmed * 100))%)</label>
+                                    <input type="range" id="sliderDimmed" name="screenBrightnessDimmed" min="0.05" max="0.8" step="0.01" value="\(settings.screenBrightnessDimmed)" oninput="liveUpdateBrightness('dimmed', this.value)">
+                                </div>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="enableWebServer" \(settings.enableWebServer ? "checked" : "")>
-                                <span>Enable Remote Web UI Server</span>
-                            </label>
+
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">videocam</span> Wakeup
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Wakeup Method</label>
+                                <select name="wakeupMethod">
+                                    <option value="face" \(settings.wakeupMethod == "face" ? "selected" : "")>Face Detection (Vision)</option>
+                                    <option value="motion" \(settings.wakeupMethod == "motion" ? "selected" : "")>Motion Detection (Camera Sensor)</option>
+                                </select>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Motion Sensitivity (\(Int(settings.motionSensitivity * 100))% threshold)</label>
+                                    <input type="range" name="motionSensitivity" min="0.02" max="0.25" step="0.01" value="\(settings.motionSensitivity)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Face Detection Interval (seconds)</label>
+                                    <input type="number" step="0.1" name="faceDetectionInterval" value="\(settings.faceDetectionInterval)" min="0.1" max="5.0">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="showDebugInfo" \(settings.showDebugInfo ? "checked" : "")>
+                                    <span>Show camera debug info on screensaver</span>
+                                </label>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Web Server Port</label>
-                            <input type="number" name="webServerPort" value="\(settings.webServerPort)" min="1024" max="65535">
-                            <div class="hint">Default port is 8080. Accessible at <code>http://\(hostIP):\(settings.webServerPort)</code></div>
+
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">bedtime</span> Deep sleep
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableDeepSleep" \(settings.enableDeepSleep ? "checked" : "")>
+                                    <span>Enable Deep Sleep</span>
+                                </label>
+                                <div class="hint">Completely turns off the camera sensor, blacks out the screen to minimum brightness, and halts background rendering after extended inactivity to maximize battery life. Tap the screen to wake instantly.</div>
+                            </div>
+                            <div class="form-group" style="margin-top: 14px;">
+                                <label>No Activity Timeout (seconds: 1800s = 30m, 3600s = 1h, 14400s = 4h)</label>
+                                <input type="number" name="deepSleepTimeout" value="\(Int(settings.deepSleepTimeout))" min="1800" max="14400" step="300">
+                            </div>
+                        </div>
+
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">auto_stories</span> Slideshow
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Slideshow URLs (one per line)</label>
+                                <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
+                                <div class="hint">Secondary URLs cycled during slideshow screensaver mode.</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Slideshow Cycle Interval (seconds)</label>
+                                <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">home</span> Home Assistant Integration
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="enableHomeAssistant" \(settings.enableHomeAssistant ? "checked" : "")>
-                                <span>Enable Home Assistant API integration</span>
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Home Assistant Host / IP</label>
-                                <input type="text" name="homeAssistantIP" value="\(settings.homeAssistantIP)" placeholder="homeassistant.local">
+                    <!-- Tab: Integrations -->
+                    <div id="tab-integrations" class="tab-panel">
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">home</span> Home assistant
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>Port</label>
-                                <input type="text" name="homeAssistantPort" value="\(settings.homeAssistantPort)" placeholder="8123">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableHomeAssistant" \(settings.enableHomeAssistant ? "checked" : "")>
+                                    <span>Enable Home Assistant API integration</span>
+                                </label>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Home Assistant Host / IP</label>
+                                    <input type="text" name="homeAssistantIP" value="\(settings.homeAssistantIP)" placeholder="homeassistant.local">
+                                </div>
+                                <div class="form-group">
+                                    <label>Port</label>
+                                    <input type="text" name="homeAssistantPort" value="\(settings.homeAssistantPort)" placeholder="8123">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Long-Lived Access Token</label>
+                                <input type="password" name="accessToken" class="code-input" value="\(settings.accessToken)" placeholder="Bearer token">
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="useHTTPS" \(settings.useHTTPS ? "checked" : "")>
+                                    <span>Use HTTPS / WSS</span>
+                                </label>
                             </div>
                         </div>
-                        <div class="form-group">
-                            <label>Long-Lived Access Token</label>
-                            <input type="password" name="accessToken" class="code-input" value="\(settings.accessToken)" placeholder="Bearer token">
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="useHTTPS" \(settings.useHTTPS ? "checked" : "")>
-                                <span>Use HTTPS / WSS</span>
-                            </label>
+
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">sensors</span> MQTT
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableMQTT" \(settings.enableMQTT ? "checked" : "")>
+                                    <span>Enable MQTT broker connection</span>
+                                </label>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Broker Host / IP</label>
+                                    <input type="text" name="mqttBrokerIP" value="\(settings.mqttBrokerIP)" placeholder="192.168.1.100">
+                                </div>
+                                <div class="form-group">
+                                    <label>Port</label>
+                                    <input type="text" name="mqttPort" value="\(settings.mqttPort)" placeholder="1883">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Username (optional)</label>
+                                    <input type="text" name="mqttUsername" value="\(settings.mqttUsername)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Password (optional)</label>
+                                    <input type="password" name="mqttPassword" value="\(settings.mqttPassword)">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Topic Prefix</label>
+                                    <input type="text" name="mqttTopicPrefix" value="\(settings.mqttTopicPrefix)" placeholder="homeassistant">
+                                </div>
+                                <div class="form-group">
+                                    <label>Battery Report Interval (seconds)</label>
+                                    <input type="number" name="mqttBatteryUpdateInterval" value="\(Int(settings.mqttBatteryUpdateInterval))" min="10" max="3600">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="mqttUseTLS" \(settings.mqttUseTLS ? "checked" : "")>
+                                    <span>Use TLS/SSL connection</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="card-section">
-                        <div class="section-header">
-                            <div class="section-title">
-                                <span class="material-symbols-outlined">sensors</span> MQTT Integration
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="enableMQTT" \(settings.enableMQTT ? "checked" : "")>
-                                <span>Enable MQTT broker connection</span>
-                            </label>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Broker Host / IP</label>
-                                <input type="text" name="mqttBrokerIP" value="\(settings.mqttBrokerIP)" placeholder="192.168.1.100">
+                    <!-- Tab: Authentication -->
+                    <div id="tab-auth" class="tab-panel">
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
+                                    <span class="material-symbols-outlined">security</span> Device authentication
+                                </div>
                             </div>
                             <div class="form-group">
-                                <label>Port</label>
-                                <input type="text" name="mqttPort" value="\(settings.mqttPort)" placeholder="1883">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="requireDeviceAuth" \(settings.requireDeviceAuth ? "checked" : "")>
+                                    <span>Require Authentication for Settings & WebUI</span>
+                                </label>
+                                <div class="hint">When enabled, the administrator credentials below protect on-device Kiosk Settings and HTTP access to this Remote WebUI.</div>
                             </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Username (optional)</label>
-                                <input type="text" name="mqttUsername" value="\(settings.mqttUsername)">
+                            <div class="form-row" style="margin-top: 14px;">
+                                <div class="form-group">
+                                    <label>Administrator Username</label>
+                                    <input type="text" name="webServerUsername" value="\(settings.webServerUsername)">
+                                </div>
+                                <div class="form-group">
+                                    <label>Administrator Password</label>
+                                    <input type="password" name="webServerPassword" value="\(settings.webServerPassword)" placeholder="Enter password">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Password (optional)</label>
-                                <input type="password" name="mqttPassword" value="\(settings.mqttPassword)">
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Topic Prefix</label>
-                                <input type="text" name="mqttTopicPrefix" value="\(settings.mqttTopicPrefix)" placeholder="homeassistant">
-                            </div>
-                            <div class="form-group">
-                                <label>Battery Report Interval (seconds)</label>
-                                <input type="number" name="mqttBatteryUpdateInterval" value="\(Int(settings.mqttBatteryUpdateInterval))" min="10" max="3600">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-group">
-                                <input type="checkbox" name="mqttUseTLS" \(settings.mqttUseTLS ? "checked" : "")>
-                                <span>Use TLS/SSL connection</span>
-                            </label>
                         </div>
                     </div>
 
@@ -1452,6 +1558,27 @@ final class WebServerManager: ObservableObject {
             </div>
 
             <script>
+                function switchTab(tabId, btn) {
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    const panel = document.getElementById(tabId);
+                    if (panel) panel.classList.add('active');
+                    if (btn) btn.classList.add('active');
+                    try {
+                        localStorage.setItem('padpanel_active_tab', tabId);
+                    } catch(e) {}
+                }
+
+                window.addEventListener('DOMContentLoaded', () => {
+                    try {
+                        const saved = localStorage.getItem('padpanel_active_tab');
+                        if (saved && document.getElementById(saved)) {
+                            const btn = document.querySelector(`.tab-btn[data-tab="${saved}"]`);
+                            if (btn) switchTab(saved, btn);
+                        }
+                    } catch(e) {}
+                });
+
                 let brightnessDebounce = null;
                 function liveUpdateBrightness(type, val) {
                     const num = parseFloat(val);
@@ -1574,7 +1701,7 @@ final class WebServerManager: ObservableObject {
                     // Boolean checkboxes
                     const checkboxes = [
                         'showDebugInfo', 'enableAutoRefresh', 'requireDeviceAuth', 'enableWebServer',
-                        'enableHomeAssistant', 'useHTTPS', 'enableMQTT', 'mqttUseTLS'
+                        'enableHomeAssistant', 'useHTTPS', 'enableMQTT', 'mqttUseTLS', 'enableDeepSleep'
                     ];
                     checkboxes.forEach(name => {
                         const el = form.querySelector('[name=' + name + ']');
