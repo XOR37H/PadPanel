@@ -620,7 +620,7 @@ final class WebServerManager: ObservableObject {
             switch action {
             case "screensaver":
                 NotificationCenter.default.post(name: .mqttScreensaverActivated, object: nil)
-            case "sleep":
+            case "sleep", "deepsleep", "deep_sleep":
                 NotificationCenter.default.post(name: .remoteSleep, object: nil)
             case "wakeup":
                 NotificationCenter.default.post(name: .remoteWakeup, object: nil)

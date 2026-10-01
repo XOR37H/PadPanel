@@ -7,6 +7,7 @@ interface KioskManagerProps {
 
 export function useKioskManager({ settings }: KioskManagerProps) {
   const [isScreensaverActive, setIsScreensaverActive] = useState<boolean>(false);
+  const [isDeepSleepActive, setIsDeepSleepActive] = useState<boolean>(false);
   const [currentSlideIndex, setCurrentSlideIndex] = useState<number>(0);
   const [isSlideshowPaused, setIsSlideshowPaused] = useState<boolean>(false);
   const [inactivitySecondsLeft, setInactivitySecondsLeft] = useState<number>(settings.screensaverTimeout);
@@ -27,17 +28,26 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   // Wake display / reset inactivity timer
   const handleUserActivity = useCallback(() => {
     setInactivitySecondsLeft(settings.screensaverTimeout);
-    if (isScreensaverActive) {
+    if (isDeepSleepActive) {
+      setIsDeepSleepActive(false);
+      setIsScreensaverActive(false);
+    } else if (isScreensaverActive) {
       setIsScreensaverActive(false);
     }
-  }, [settings.screensaverTimeout, isScreensaverActive]);
+  }, [settings.screensaverTimeout, isScreensaverActive, isDeepSleepActive]);
 
   const activateScreensaver = useCallback(() => {
     if (settings.screensaverMode === "off") return;
     setIsScreensaverActive(true);
   }, [settings.screensaverMode]);
 
+  const activateDeepSleep = useCallback(() => {
+    setIsDeepSleepActive(true);
+    setIsScreensaverActive(true);
+  }, []);
+
   const exitScreensaver = useCallback(() => {
+    setIsDeepSleepActive(false);
     setIsScreensaverActive(false);
     setInactivitySecondsLeft(settings.screensaverTimeout);
   }, [settings.screensaverTimeout]);
@@ -150,6 +160,8 @@ export function useKioskManager({ settings }: KioskManagerProps) {
       const action = e.detail?.action;
       if (action === "screensaver") {
         activateScreensaver();
+      } else if (action === "sleep" || action === "deepsleep" || action === "deep_sleep") {
+        activateDeepSleep();
       } else if (action === "wakeup") {
         exitScreensaver();
       } else if (action === "reload") {
@@ -161,7 +173,7 @@ export function useKioskManager({ settings }: KioskManagerProps) {
     return () => {
       window.removeEventListener("padpanel:remote-action" as any, handleRemoteAction);
     };
-  }, [activateScreensaver, exitScreensaver, reloadAllWebViews]);
+  }, [activateScreensaver, activateDeepSleep, exitScreensaver, reloadAllWebViews]);
 
   // Make sure currentSlideIndex is in bounds if URLs change
   useEffect(() => {
@@ -241,6 +253,7 @@ export function useKioskManager({ settings }: KioskManagerProps) {
 
   return {
     isScreensaverActive,
+    isDeepSleepActive,
     shouldShowClockScreensaver,
     isDimmedOnly,
     currentBrightness,
@@ -255,6 +268,7 @@ export function useKioskManager({ settings }: KioskManagerProps) {
     reloadCounter,
     handleUserActivity,
     activateScreensaver,
+    activateDeepSleep,
     exitScreensaver,
     reloadAllWebViews,
     nextSlide,

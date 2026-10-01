@@ -145,11 +145,15 @@ class KioskManager: ObservableObject {
         brightnessManager.dimScreen()
     }
     
-    func activateDeepSleep() {
-        guard !isSettingsOpen else { return }
-        guard settings.enableDeepSleep else { return }
+    func activateDeepSleep(force: Bool = false) {
+        if !force {
+            guard !isSettingsOpen else { return }
+            guard settings.enableDeepSleep else { return }
+        } else {
+            isSettingsOpen = false
+        }
         
-        withAnimation(.easeInOut(duration: 0.5)) {
+        withAnimation(.easeInOut(duration: 0.3)) {
             isDeepSleepActive = true
             isScreensaverActive = true
         }

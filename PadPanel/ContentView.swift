@@ -235,7 +235,8 @@ struct ContentView: View {
             queue: .main
         ) { _ in
             AppLogger.app.info("Activating deep sleep from remote command")
-            kioskManager.activateDeepSleep()
+            showingSettings = false
+            kioskManager.activateDeepSleep(force: true)
         }
     }
 

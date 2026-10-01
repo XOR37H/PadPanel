@@ -11,17 +11,20 @@ final class MockBrightnessManager: BrightnessControlling {
     private(set) var restoreCallCount = 0
     private(set) var dimCallCount = 0
     private(set) var setNormalCallCount = 0
+    private(set) var setMinimumCallCount = 0
 
     func saveAndSetBrightness() { saveAndSetCallCount += 1 }
     func restoreOriginalBrightness() { restoreCallCount += 1 }
     func dimScreen() { dimCallCount += 1 }
     func setNormalBrightness() { setNormalCallCount += 1 }
+    func setMinimumBrightness() { setMinimumCallCount += 1 }
 
     func reset() {
         saveAndSetCallCount = 0
         restoreCallCount = 0
         dimCallCount = 0
         setNormalCallCount = 0
+        setMinimumCallCount = 0
     }
 }
 
