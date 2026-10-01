@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  UltraKioskSettings,
+  PadPanelSettings,
   ScreensaverMode,
   WakeupMethod,
   validateSettings,
@@ -49,9 +49,9 @@ import {
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: UltraKioskSettings;
-  onSave: (newSettings: UltraKioskSettings) => void;
-  onLiveSettingChange?: (key: keyof UltraKioskSettings, value: any) => void;
+  settings: PadPanelSettings;
+  onSave: (newSettings: PadPanelSettings) => void;
+  onLiveSettingChange?: (key: keyof PadPanelSettings, value: any) => void;
   onTestVoiceSatellite?: () => void;
   onOpenWebUIPortal?: () => void;
   onOpenMQTTInspector?: () => void;
@@ -67,7 +67,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onOpenWebUIPortal,
   onOpenMQTTInspector,
 }) => {
-  const [form, setForm] = useState<UltraKioskSettings>({ ...settings });
+  const [form, setForm] = useState<PadPanelSettings>({ ...settings });
   const [activeTab, setActiveTab] = useState<
     "screensaver" | "motion" | "kiosk" | "auth" | "webserver" | "mqtt" | "ha" | "voice" | "actions"
   >("screensaver");
@@ -114,7 +114,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       return;
     }
     // Synchronize authentication aliases
-    const updated: UltraKioskSettings = {
+    const updated: PadPanelSettings = {
       ...form,
       webServerUsername: form.deviceAdminUsername,
       webServerPassword: form.deviceAdminPassword,

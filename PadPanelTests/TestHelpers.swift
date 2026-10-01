@@ -30,13 +30,13 @@ final class MockBrightnessManager: BrightnessControlling {
 extension UserDefaults {
     /// Returns a fresh, isolated UserDefaults suite for use in a single test.
     /// Call removeSuite() in tearDown to clean up.
-    static func testSuite(name: String = "test.ultrakiosk") -> UserDefaults {
+    static func testSuite(name: String = "test.padpanel") -> UserDefaults {
         let suite = UserDefaults(suiteName: name)!
         suite.removePersistentDomain(forName: name)
         return suite
     }
 
-    func removeSuite(name: String = "test.ultrakiosk") {
+    func removeSuite(name: String = "test.padpanel") {
         removePersistentDomain(forName: name)
     }
 }

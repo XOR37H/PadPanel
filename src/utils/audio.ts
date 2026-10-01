@@ -1,4 +1,4 @@
-// Audio utility for UltraKiosk voice satellite sounds with iOS 15 WebAudio unlock
+// Audio utility for PadPanel voice satellite sounds with iOS 15 WebAudio unlock
 
 class SoundPlayer {
   private audioCtx: AudioContext | null = null;

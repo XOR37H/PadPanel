@@ -10,7 +10,7 @@ final class SlideshowManagerTests: XCTestCase {
     private var mockBrightness: MockBrightnessManager!
     private var cancellables: Set<AnyCancellable>!
 
-    private static let suiteName = "test.ultrakiosk.slideshow"
+    private static let suiteName = "test.padpanel.slideshow"
 
     override func setUp() {
         super.setUp()

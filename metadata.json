@@ -1,5 +1,5 @@
 {
-  "name": "UltraKiosk",
+  "name": "PadPanel",
   "description": "Smart kiosk and dashboard display with multi-dashboard slideshow, auto screensaver, motion/face detection display wake, voice assistant satellite, and MQTT integration.",
   "permissions": [],
   "capabilities": [

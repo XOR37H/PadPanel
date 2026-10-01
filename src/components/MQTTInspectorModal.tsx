@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { UltraKioskSettings } from "../types/settings";
+import { PadPanelSettings } from "../types/settings";
 import {
   X,
   Radio,
@@ -19,8 +19,8 @@ import {
 interface MQTTInspectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: UltraKioskSettings;
-  onUpdateSetting: (key: keyof UltraKioskSettings, value: any) => void;
+  settings: PadPanelSettings;
+  onUpdateSetting: (key: keyof PadPanelSettings, value: any) => void;
   onTriggerAction: (action: "screensaver" | "wakeup" | "reload") => void;
   batteryLevel: number;
   isCharging: boolean;
@@ -49,7 +49,7 @@ export const MQTTInspectorModal: React.FC<MQTTInspectorModalProps> = ({
     setTimeout(() => setLastActionLog(null), 4000);
   };
 
-  const handleCommand = (key: keyof UltraKioskSettings, value: any, topic: string) => {
+  const handleCommand = (key: keyof PadPanelSettings, value: any, topic: string) => {
     onUpdateSetting(key, value);
     logMqttEvent(topic, String(value));
   };

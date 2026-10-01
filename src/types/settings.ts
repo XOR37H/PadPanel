@@ -1,7 +1,7 @@
 export type ScreensaverMode = "clock" | "dimming" | "urls" | "off";
 export type WakeupMethod = "face" | "motion";
 
-export interface UltraKioskSettings {
+export interface PadPanelSettings {
   // Device & WebUI Authentication (Ubiquitous)
   deviceAdminUsername: string; // default "admin"
   deviceAdminPassword: string; // default ""
@@ -60,9 +60,9 @@ export interface UltraKioskSettings {
   slideshowInterval: number; // seconds
 }
 
-export type PadPanelSettings = UltraKioskSettings;
+export type UltraKioskSettings = PadPanelSettings;
 
-export const DEFAULT_SETTINGS: UltraKioskSettings = {
+export const DEFAULT_SETTINGS: PadPanelSettings = {
   // Device & WebUI Authentication
   deviceAdminUsername: "admin",
   deviceAdminPassword: "",
@@ -124,7 +124,7 @@ export const DEFAULT_SETTINGS: UltraKioskSettings = {
 const STORAGE_KEY = "padpanel_settings_v2";
 const LEGACY_STORAGE_KEY = "ultrakiosk_settings_v1";
 
-export function loadSettingsFromStorage(): UltraKioskSettings {
+export function loadSettingsFromStorage(): PadPanelSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return { ...DEFAULT_SETTINGS };
@@ -152,23 +152,22 @@ export function loadSettingsFromStorage(): UltraKioskSettings {
   }
 }
 
-export function saveSettingsToStorage(settings: UltraKioskSettings): void {
+export function saveSettingsToStorage(settings: PadPanelSettings): void {
   try {
     // Keep username and password fields synchronized
-    const normalized: UltraKioskSettings = {
+    const normalized: PadPanelSettings = {
       ...settings,
       webServerUsername: settings.deviceAdminUsername,
       webServerPassword: settings.deviceAdminPassword,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     window.dispatchEvent(new CustomEvent("padpanel:settings-changed", { detail: normalized }));
-    window.dispatchEvent(new CustomEvent("ultrakiosk:settings-changed", { detail: normalized }));
   } catch (e) {
     console.error("Failed to save settings to storage:", e);
   }
 }
 
-export function validateSettings(settings: UltraKioskSettings): string[] {
+export function validateSettings(settings: PadPanelSettings): string[] {
   const issues: string[] = [];
 
   const haPort = parseInt(settings.homeAssistantPort, 10);

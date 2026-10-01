@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { soundPlayer } from "../utils/audio";
-import { UltraKioskSettings } from "../types/settings";
+import { PadPanelSettings } from "../types/settings";
 
 interface VoiceSatelliteOptions {
-  settings: UltraKioskSettings;
+  settings: PadPanelSettings;
   onVoiceCommand?: (text: string) => void;
 }
 

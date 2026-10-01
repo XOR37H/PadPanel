@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { UltraKioskSettings } from "../types/settings";
+import { PadPanelSettings } from "../types/settings";
 
 interface KioskManagerProps {
-  settings: UltraKioskSettings;
+  settings: PadPanelSettings;
 }
 
 export function useKioskManager({ settings }: KioskManagerProps) {

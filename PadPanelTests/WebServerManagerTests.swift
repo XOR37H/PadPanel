@@ -5,7 +5,7 @@ import Combine
 final class WebServerManagerTests: XCTestCase {
 
     private var settings: SettingsManager!
-    private static let suiteName = "test.ultrakiosk.webserver"
+    private static let suiteName = "test.padpanel.webserver"
 
     override func setUp() {
         super.setUp()

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { UltraKioskSettings, ScreensaverMode, WakeupMethod } from "../types/settings";
+import { PadPanelSettings, ScreensaverMode, WakeupMethod } from "../types/settings";
 import {
   X,
   Globe,
@@ -27,9 +27,9 @@ import {
 interface WebUIPortalModalProps {
   isOpen: boolean;
   onClose: () => void;
-  settings: UltraKioskSettings;
-  onSaveSettings: (newSettings: UltraKioskSettings) => void;
-  onLiveSettingChange?: (key: keyof UltraKioskSettings, value: any) => void;
+  settings: PadPanelSettings;
+  onSaveSettings: (newSettings: PadPanelSettings) => void;
+  onLiveSettingChange?: (key: keyof PadPanelSettings, value: any) => void;
   onTriggerAction: (action: "screensaver" | "wakeup" | "reload") => void;
   isScreensaverActive: boolean;
   batteryLevel: number;
@@ -59,7 +59,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Form state for remote settings editing
-  const [form, setForm] = useState<UltraKioskSettings>({ ...settings });
+  const [form, setForm] = useState<PadPanelSettings>({ ...settings });
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"dashboard" | "settings" | "api">("dashboard");
 
@@ -99,7 +99,7 @@ export const WebUIPortalModal: React.FC<WebUIPortalModalProps> = ({
     }
   };
 
-  const handleLiveSliderChange = (key: keyof UltraKioskSettings, val: any) => {
+  const handleLiveSliderChange = (key: keyof PadPanelSettings, val: any) => {
     setForm((prev) => ({ ...prev, [key]: val }));
     if (onLiveSettingChange) {
       onLiveSettingChange(key, val);

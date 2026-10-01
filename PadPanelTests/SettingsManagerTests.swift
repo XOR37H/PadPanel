@@ -8,7 +8,7 @@ final class SettingsManagerTests: XCTestCase {
     private var testDefaults: UserDefaults!
     private var cancellables: Set<AnyCancellable>!
 
-    private static let suiteName = "test.ultrakiosk.settings"
+    private static let suiteName = "test.padpanel.settings"
 
     override func setUp() {
         super.setUp()
@@ -400,14 +400,14 @@ final class SettingsManagerTests: XCTestCase {
         sut.slideshowInterval = 45.0
         let exported = sut.exportSettings()
 
-        let importSuite = UserDefaults.testSuite(name: "test.ultrakiosk.import")
+        let importSuite = UserDefaults.testSuite(name: "test.padpanel.import")
         let fresh = SettingsManager(userDefaults: importSuite)
         fresh.importSettings(exported)
 
         XCTAssertEqual(fresh.slideshowURLs, ["https://dash1.local", "https://dash2.local"])
         XCTAssertEqual(fresh.slideshowInterval, 45.0, accuracy: 0.001)
 
-        importSuite.removeSuite(name: "test.ultrakiosk.import")
+        importSuite.removeSuite(name: "test.padpanel.import")
     }
 
     func testExportImport_homeAssistantSettings_roundtrip() {
@@ -416,7 +416,7 @@ final class SettingsManagerTests: XCTestCase {
         sut.useHTTPS = true
         let exported = sut.exportSettings()
 
-        let importSuite = UserDefaults.testSuite(name: "test.ultrakiosk.import2")
+        let importSuite = UserDefaults.testSuite(name: "test.padpanel.import2")
         let fresh = SettingsManager(userDefaults: importSuite)
         fresh.importSettings(exported)
 
@@ -424,7 +424,7 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertEqual(fresh.homeAssistantPort, "8123")
         XCTAssertTrue(fresh.useHTTPS)
 
-        importSuite.removeSuite(name: "test.ultrakiosk.import2")
+        importSuite.removeSuite(name: "test.padpanel.import2")
     }
 
     func testExportSettings_containsExpectedKeys() {
