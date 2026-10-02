@@ -38,15 +38,18 @@ class SettingsManager: ObservableObject {
     
     @Published var enableVoiceActivation: Bool = false
     @Published var kioskURL: String = "http://homeassistant.local:8123/anzeige-flur/0?kiosk"
-    @Published var screensaverMode: String = "off" // "clock", "dimming", "urls", "off"
+    @Published var screensaverMode: String = "off" // "clock", "photoFrame", "dimming", "off"
     @Published var faceDetectionInterval: Double = 1.0 // seconds between detections
     @Published var wakeupMethod: String = "face" // "face" or "motion"
     @Published var motionSensitivity: Double = 0.08 // 0.02 (high) to 0.25 (low)
     @Published var showDebugInfo: Bool = false
     @Published var enableAutoRefresh: Bool = false
     @Published var autoRefreshInterval: Double = 300.0 // seconds, default 5m
+    @Published var enableSlideshow: Bool = false
     @Published var slideshowURLs: [String] = []
     @Published var slideshowInterval: Double = 30.0
+    @Published var photoFrameURL: String = ""
+    @Published var photoFrameInterval: Double = 60.0 // seconds
     
     // Remote Web Server & Device Authentication settings
     @Published var enableWebServer: Bool = true
@@ -108,6 +111,9 @@ class SettingsManager: ObservableObject {
         static let homeAssistantConversationId = "homeAssistantConversationId"
         static let slideshowURLs     = "slideshowURLs"     // JSON-encoded [String]
         static let slideshowInterval = "slideshowInterval"  // Double, seconds
+        static let enableSlideshow   = "enableSlideshow"
+        static let photoFrameURL     = "photoFrameURL"
+        static let photoFrameInterval = "photoFrameInterval"
     }
     
     /// Generates a random alphanumeric token in the format xxxx-xxxx-xxxx (0-9a-zA-Z)
@@ -369,6 +375,19 @@ class SettingsManager: ObservableObject {
             slideshowInterval = 30.0
         }
 
+        if defaults.object(forKey: Keys.enableSlideshow) != nil {
+            enableSlideshow = defaults.bool(forKey: Keys.enableSlideshow)
+        } else {
+            enableSlideshow = false
+        }
+
+        photoFrameURL = defaults.string(forKey: Keys.photoFrameURL) ?? ""
+        if let pfi = defaults.object(forKey: Keys.photoFrameInterval) as? Double, pfi > 0 {
+            photoFrameInterval = pfi
+        } else {
+            photoFrameInterval = 60.0
+        }
+
         // Slideshow URL list — one-time migration from legacy kioskURL.
         // Read directly from UserDefaults (not self.kioskURL) to avoid picking up
         // the hardcoded fallback value on fresh installs.
@@ -437,6 +456,9 @@ class SettingsManager: ObservableObject {
         defaults.set(voiceLanguage, forKey: Keys.voiceLanguage)
 
         defaults.set(slideshowInterval, forKey: Keys.slideshowInterval)
+        defaults.set(enableSlideshow, forKey: Keys.enableSlideshow)
+        defaults.set(photoFrameURL, forKey: Keys.photoFrameURL)
+        defaults.set(photoFrameInterval, forKey: Keys.photoFrameInterval)
         if let data = try? JSONEncoder().encode(slideshowURLs) {
             defaults.set(data, forKey: Keys.slideshowURLs)
         }
@@ -533,8 +555,11 @@ class SettingsManager: ObservableObject {
             "homeAssistantConversationAgent": homeAssistantConversationAgent,
             "homeAssistantConversationId": homeAssistantConversationId,
             "voiceLanguage": voiceLanguage,
+            "enableSlideshow": enableSlideshow,
             "slideshowURLs": slideshowURLs,
-            "slideshowInterval": slideshowInterval
+            "slideshowInterval": slideshowInterval,
+            "photoFrameURL": photoFrameURL,
+            "photoFrameInterval": photoFrameInterval
         ]
     }
     
@@ -660,6 +685,17 @@ class SettingsManager: ObservableObject {
             }
         }
 
+        if let es = settings["enableSlideshow"] {
+            if let b = es as? Bool { enableSlideshow = b }
+            else if let s = es as? String { enableSlideshow = (s == "true" || s == "1" || s == "on") }
+        }
+
+        if let pfu = settings["photoFrameURL"] as? String { photoFrameURL = pfu }
+        if let pfi = settings["photoFrameInterval"] {
+            if let d = pfi as? Double { photoFrameInterval = d }
+            else if let s = pfi as? String, let d = Double(s) { photoFrameInterval = d }
+        }
+
         if let interval = settings["slideshowInterval"] {
             if let d = interval as? Double { slideshowInterval = d }
             else if let s = interval as? String, let d = Double(s) { slideshowInterval = d }
@@ -682,6 +718,9 @@ class SettingsManager: ObservableObject {
         mainDashboardURL = \(mainDashboardURL)
         enableAutoRefresh = \(enableAutoRefresh)
         autoRefreshInterval = \(autoRefreshInterval)
+        enableSlideshow = \(enableSlideshow)
+        slideshowURLs = \(urlsJson)
+        slideshowInterval = \(slideshowInterval)
 
         [HomeAssistant]
         enableHomeAssistant = \(enableHomeAssistant)
@@ -710,8 +749,8 @@ class SettingsManager: ObservableObject {
         motionSensitivity = \(motionSensitivity)
         faceDetectionInterval = \(faceDetectionInterval)
         showDebugInfo = \(showDebugInfo)
-        slideshowURLs = \(urlsJson)
-        slideshowInterval = \(slideshowInterval)
+        photoFrameURL = \(photoFrameURL)
+        photoFrameInterval = \(photoFrameInterval)
 
         [MQTT]
         enableMQTT = \(enableMQTT)
@@ -838,8 +877,11 @@ class SettingsManager: ObservableObject {
         homeAssistantConversationId = "ipad"
         homeAssistantConversationAgent = "conversation.claude_conversation"
 
+        enableSlideshow = false
         slideshowURLs = []
         slideshowInterval = 30.0
+        photoFrameURL = ""
+        photoFrameInterval = 60.0
     }
 
     // MARK: - Computed Properties

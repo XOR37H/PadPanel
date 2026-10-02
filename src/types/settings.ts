@@ -1,4 +1,4 @@
-export type ScreensaverMode = "clock" | "dimming" | "urls" | "off";
+export type ScreensaverMode = "clock" | "photoFrame" | "dimming" | "off";
 export type WakeupMethod = "face" | "motion";
 
 export interface PadPanelSettings {
@@ -25,9 +25,17 @@ export interface PadPanelSettings {
 
   // Screensaver & Display
   screensaverTimeout: number; // seconds
-  screensaverMode: ScreensaverMode; // "clock", "dimming", "urls", "off"
+  screensaverMode: ScreensaverMode; // "clock", "photoFrame", "dimming", "off"
   screenBrightnessDimmed: number; // 0.05 to 0.8
   screenBrightnessNormal: number; // 0.3 to 1.0
+
+  // Deep Sleep
+  enableDeepSleep: boolean;
+  deepSleepTimeout: number; // seconds (default 1800)
+
+  // Photo Frame
+  photoFrameURL: string;
+  photoFrameInterval: number; // seconds (default 60)
 
   // Face & Motion Detection Wakeup
   faceDetectionInterval: number; // seconds
@@ -56,6 +64,7 @@ export interface PadPanelSettings {
 
   // Kiosk / Slideshow
   kioskURL: string;
+  enableSlideshow: boolean;
   slideshowURLs: string[];
   slideshowInterval: number; // seconds
 }
@@ -90,6 +99,14 @@ export const DEFAULT_SETTINGS: PadPanelSettings = {
   screenBrightnessDimmed: 0.2,
   screenBrightnessNormal: 0.7,
 
+  // Deep Sleep
+  enableDeepSleep: false,
+  deepSleepTimeout: 1800.0,
+
+  // Photo Frame
+  photoFrameURL: "",
+  photoFrameInterval: 60.0,
+
   // Face & Motion Detection Wakeup
   faceDetectionInterval: 1.0,
   wakeupMethod: "face",
@@ -117,6 +134,7 @@ export const DEFAULT_SETTINGS: PadPanelSettings = {
 
   // Kiosk / Slideshow
   kioskURL: "http://homeassistant.local:8123/anzeige-flur/0?kiosk",
+  enableSlideshow: false,
   slideshowURLs: [],
   slideshowInterval: 30.0,
 };
@@ -135,14 +153,30 @@ export function loadSettingsFromStorage(): PadPanelSettings {
     const adminPass = parsed.deviceAdminPassword ?? parsed.webServerPassword ?? DEFAULT_SETTINGS.deviceAdminPassword;
     const reqAuth = parsed.requireDeviceAuth ?? (adminPass.length > 0);
 
+    // Normalize screensaverMode (if user previously had "urls", migrate to "photoFrame" or "clock")
+    let sMode: ScreensaverMode = parsed.screensaverMode;
+    let sEnableSlideshow = parsed.enableSlideshow ?? false;
+    if ((sMode as string) === "urls") {
+      sMode = "clock";
+      sEnableSlideshow = true;
+    } else if (!["clock", "photoFrame", "dimming", "off"].includes(sMode)) {
+      sMode = "clock";
+    }
+
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      screensaverMode: sMode,
+      enableSlideshow: sEnableSlideshow,
       deviceAdminUsername: adminUser,
       deviceAdminPassword: adminPass,
       webServerUsername: adminUser,
       webServerPassword: adminPass,
       requireDeviceAuth: reqAuth,
+      enableDeepSleep: parsed.enableDeepSleep ?? DEFAULT_SETTINGS.enableDeepSleep,
+      deepSleepTimeout: parsed.deepSleepTimeout ?? DEFAULT_SETTINGS.deepSleepTimeout,
+      photoFrameURL: parsed.photoFrameURL ?? DEFAULT_SETTINGS.photoFrameURL,
+      photoFrameInterval: parsed.photoFrameInterval ?? DEFAULT_SETTINGS.photoFrameInterval,
       // Ensure slideshowURLs is always an array
       slideshowURLs: Array.isArray(parsed.slideshowURLs) ? parsed.slideshowURLs : [],
     };

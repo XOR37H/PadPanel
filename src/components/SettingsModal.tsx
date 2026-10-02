@@ -44,6 +44,8 @@ import {
   UserCheck,
   Shield,
   KeyRound,
+  Moon,
+  Image as ImageIcon,
 } from "lucide-react";
 
 interface SettingsModalProps {
@@ -403,9 +405,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         desc: "Keeps your dashboard visible on screen but lowers brightness to save power and screen life.",
                       },
                       {
-                        value: "urls",
-                        title: "Cycle Slideshow URLs",
-                        desc: "Cycles through configured URLs only when the screensaver activates.",
+                        value: "photoFrame",
+                        title: "Photo Frame",
+                        desc: "Fetches an image from a URL endpoint and refreshes it periodically.",
                       },
                       {
                         value: "off",
@@ -547,6 +549,102 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                     </div>
                   )}
+                </div>
+
+                {/* Deep Sleep */}
+                <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs font-semibold text-white flex items-center space-x-1.5">
+                        <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>Deep Sleep</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Completely turns off camera sensor, blacks out screen to minimum brightness, and halts background rendering after extended inactivity.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.enableDeepSleep}
+                        onChange={(e) => setForm({ ...form, enableDeepSleep: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
+                  {form.enableDeepSleep && (
+                    <div className="pt-2 border-t border-slate-800">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-xs font-medium text-slate-300">
+                          Deep Sleep Timeout ({Math.round(form.deepSleepTimeout / 60)} min / {form.deepSleepTimeout}s)
+                        </label>
+                        <span className="text-xs font-mono text-indigo-400">{form.deepSleepTimeout}s</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1800"
+                        max="14400"
+                        step="300"
+                        value={form.deepSleepTimeout}
+                        onChange={(e) => setForm({ ...form, deepSleepTimeout: Number(e.target.value) })}
+                        className="w-full accent-indigo-500"
+                      />
+                      <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>30m</span>
+                        <span>1h</span>
+                        <span>2h</span>
+                        <span>4h</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Photo Frame (sits beneath Deep sleep) */}
+                <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-4">
+                  <div>
+                    <div className="text-xs font-semibold text-white flex items-center space-x-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Photo frame</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Active when Screensaver Option is set to "Photo Frame". Fetches an image from a single URL endpoint and refreshes it periodically.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1">
+                      Photo Frame Image URL
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="http://homeassistant.local:8123/api/camera_proxy/camera.front_door"
+                      value={form.photoFrameURL}
+                      onChange={(e) => setForm({ ...form, photoFrameURL: e.target.value })}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white focus:outline-none focus:border-indigo-500"
+                    />
+                    <div className="text-[11px] text-slate-500 mt-1">Single URL endpoint for an image (e.g. camera snapshot, rotating photo service).</div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="text-xs font-medium text-slate-300">
+                        Image Refresh Interval ({form.photoFrameInterval}s)
+                      </label>
+                      <span className="text-xs font-mono text-indigo-400">{form.photoFrameInterval}s</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="5"
+                      max="3600"
+                      step="5"
+                      value={form.photoFrameInterval}
+                      onChange={(e) => setForm({ ...form, photoFrameInterval: Number(e.target.value) })}
+                      className="w-full accent-indigo-500"
+                    />
+                    <div className="text-[11px] text-slate-500 mt-1">How often to refetch and display the updated image from the URL endpoint.</div>
+                  </div>
                 </div>
               </div>
             )}
@@ -782,6 +880,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div className="p-5 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div>
+                      <div className="text-xs font-semibold text-white">Enable Slideshow</div>
+                      <p className="text-[11px] text-slate-400">
+                        When enabled, the main dashboard and any additional URLs will cycle during normal viewing based on the cycle interval.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.enableSlideshow}
+                        onChange={(e) => setForm({ ...form, enableSlideshow: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-slate-300 mb-1">
                       Primary Dashboard URL

@@ -222,7 +222,7 @@ export function App() {
                   </div>
                   <h4 className="font-semibold text-white text-sm mb-1.5">Versatile Screensavers</h4>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    Choose between minimal OLED-friendly Clock & date, In-place screen dimming, secondary URL slideshows, or disable completely.
+                    Choose between minimal OLED-friendly Clock & date, In-place screen dimming, periodic Photo Frame image refresh, or disable completely.
                   </p>
                 </div>
 

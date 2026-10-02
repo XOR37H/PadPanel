@@ -35,6 +35,7 @@ final class SlideshowManagerTests: XCTestCase {
     /// Convenience: configure the SlideshowManager with the given URLs and interval,
     /// then let the RunLoop process the initial Combine emissions.
     private func configure(urls: [String], interval: Double = 30.0) {
+        settings.enableSlideshow = true
         settings.slideshowURLs = urls
         settings.slideshowInterval = interval
         sut.configure(settings: settings, kioskManager: kioskManager)
@@ -45,6 +46,16 @@ final class SlideshowManagerTests: XCTestCase {
     // MARK: - Initial State
 
     func testInitialIndex_isZero() {
+        XCTAssertEqual(sut.currentIndex, 0)
+    }
+
+    func testSlideshow_whenDisabled_doesNotAdvance() {
+        settings.enableSlideshow = false
+        settings.slideshowURLs = ["https://a.com", "https://b.com"]
+        settings.slideshowInterval = 0.1
+        sut.configure(settings: settings, kioskManager: kioskManager)
+        sut.start()
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.2))
         XCTAssertEqual(sut.currentIndex, 0)
     }
 

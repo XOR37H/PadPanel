@@ -629,6 +629,16 @@ extension MQTTManager {
             min: 5, max: 600, step: 5, unit: "s", icon: "mdi:image-multiple"
         )
         publishNumberDiscovery(
+            key: "photoFrameInterval",
+            name: "Photo Frame Interval",
+            min: 5, max: 3600, step: 5, unit: "s", icon: "mdi:image-refresh"
+        )
+        publishNumberDiscovery(
+            key: "deepSleepTimeout",
+            name: "Deep Sleep Timeout",
+            min: 1800, max: 14400, step: 300, unit: "s", icon: "mdi:power-sleep"
+        )
+        publishNumberDiscovery(
             key: "autoRefreshInterval",
             name: "Auto Refresh Interval",
             min: 10, max: 3600, step: 10, unit: "s", icon: "mdi:timer-refresh"
@@ -648,7 +658,7 @@ extension MQTTManager {
         publishSelectDiscovery(
             key: "screensaverMode",
             name: "Screensaver Mode",
-            options: ["clock", "dimming", "urls", "off"],
+            options: ["clock", "photoFrame", "dimming", "off"],
             icon: "mdi:monitor-dashboard"
         )
         publishSelectDiscovery(
@@ -665,6 +675,16 @@ extension MQTTManager {
         )
 
         // switch entities
+        publishSwitchDiscovery(
+            key: "enableSlideshow",
+            name: "Enable Slideshow",
+            icon: "mdi:play-box-multiple"
+        )
+        publishSwitchDiscovery(
+            key: "enableDeepSleep",
+            name: "Enable Deep Sleep",
+            icon: "mdi:power-sleep"
+        )
         publishSwitchDiscovery(
             key: "showDebugInfo",
             name: "Camera Debug Info",
@@ -758,6 +778,8 @@ extension MQTTManager {
             "faceDetectionInterval",
             "motionSensitivity",
             "slideshowInterval",
+            "photoFrameInterval",
+            "deepSleepTimeout",
             "autoRefreshInterval",
             "voiceTimeout",
             "webServerPort",
@@ -780,6 +802,8 @@ extension MQTTManager {
         }
 
         let keysSwitch = [
+            "enableSlideshow",
+            "enableDeepSleep",
             "showDebugInfo",
             "enableAutoRefresh",
             "enableVoiceActivation",
@@ -803,6 +827,8 @@ extension MQTTManager {
         publishNumberState(key: "faceDetectionInterval", value: settings.faceDetectionInterval)
         publishNumberState(key: "motionSensitivity", value: settings.motionSensitivity)
         publishNumberState(key: "slideshowInterval", value: settings.slideshowInterval)
+        publishNumberState(key: "photoFrameInterval", value: settings.photoFrameInterval)
+        publishNumberState(key: "deepSleepTimeout", value: settings.deepSleepTimeout)
         publishNumberState(key: "autoRefreshInterval", value: settings.autoRefreshInterval)
         publishNumberState(key: "voiceTimeout", value: Double(settings.voiceTimeout))
         publishNumberState(key: "webServerPort", value: Double(settings.webServerPort))
@@ -813,6 +839,8 @@ extension MQTTManager {
         publishSelectState(key: "voiceSampleRate", value: String(settings.voiceSampleRate))
 
         // switch states
+        publishSwitchState(key: "enableSlideshow", value: settings.enableSlideshow)
+        publishSwitchState(key: "enableDeepSleep", value: settings.enableDeepSleep)
         publishSwitchState(key: "showDebugInfo", value: settings.showDebugInfo)
         publishSwitchState(key: "enableAutoRefresh", value: settings.enableAutoRefresh)
         publishSwitchState(key: "enableVoiceActivation", value: settings.enableVoiceActivation)
@@ -888,6 +916,16 @@ extension MQTTManager {
             publishNumberState(key: "slideshowInterval", value: v)
             return
         }
+        if matches("number", "photoFrameInterval"), let v = doublePayload {
+            settings.photoFrameInterval = v
+            publishNumberState(key: "photoFrameInterval", value: v)
+            return
+        }
+        if matches("number", "deepSleepTimeout"), let v = doublePayload {
+            settings.deepSleepTimeout = v
+            publishNumberState(key: "deepSleepTimeout", value: v)
+            return
+        }
         if matches("number", "autoRefreshInterval"), let v = doublePayload {
             settings.autoRefreshInterval = v
             publishNumberState(key: "autoRefreshInterval", value: v)
@@ -906,7 +944,7 @@ extension MQTTManager {
 
         // select handlers
         if matches("select", "screensaverMode") {
-            let allowed = ["clock", "dimming", "urls", "off"]
+            let allowed = ["clock", "photoFrame", "dimming", "off"]
             if allowed.contains(payload.lowercased()) {
                 settings.screensaverMode = payload.lowercased()
                 publishSelectState(key: "screensaverMode", value: settings.screensaverMode)
@@ -931,6 +969,18 @@ extension MQTTManager {
         }
 
         // switch handlers
+        if matches("switch", "enableSlideshow") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.enableSlideshow = isEnabled
+            publishSwitchState(key: "enableSlideshow", value: isEnabled)
+            return
+        }
+        if matches("switch", "enableDeepSleep") {
+            let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
+            settings.enableDeepSleep = isEnabled
+            publishSwitchState(key: "enableDeepSleep", value: isEnabled)
+            return
+        }
         if matches("switch", "showDebugInfo") {
             let isEnabled = (payload.uppercased() == "ON" || payload == "1" || payload.lowercased() == "true")
             settings.showDebugInfo = isEnabled

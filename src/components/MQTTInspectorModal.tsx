@@ -159,8 +159,8 @@ export const MQTTInspectorModal: React.FC<MQTTInspectorModalProps> = ({
                 className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
               >
                 <option value="clock">clock (Clock & Weather)</option>
+                <option value="photoFrame">photoFrame (Photo Frame)</option>
                 <option value="dimming">dimming (Dim Dashboard)</option>
-                <option value="urls">urls (Cycle Slideshow)</option>
                 <option value="off">off (Disabled)</option>
               </select>
             </div>

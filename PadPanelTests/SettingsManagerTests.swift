@@ -439,6 +439,9 @@ final class SettingsManagerTests: XCTestCase {
         XCTAssertNotNil(exported["enableWebServer"])
         XCTAssertNotNil(exported["webServerPort"])
         XCTAssertNotNil(exported["webServerPassword"])
+        XCTAssertNotNil(exported["enableSlideshow"])
+        XCTAssertNotNil(exported["photoFrameURL"])
+        XCTAssertNotNil(exported["photoFrameInterval"])
     }
 
     // MARK: - settingsChanged Notification

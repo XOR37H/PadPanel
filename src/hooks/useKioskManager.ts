@@ -21,8 +21,11 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   const autoRefreshTimerRef = useRef<number | null>(null);
   const batteryTimerRef = useRef<number | null>(null);
 
-  // Filter non-empty URLs
-  const effectiveURLs = settings.slideshowURLs.filter((u) => u.trim().length > 0);
+  // Filter non-empty URLs: main dashboard URL at index 0, followed by additional slideshow URLs
+  const effectiveURLs = [
+    settings.kioskURL,
+    ...settings.slideshowURLs,
+  ].map((u) => u.trim()).filter((u) => u.length > 0);
   const totalSlides = effectiveURLs.length === 0 ? 1 : effectiveURLs.length;
 
   // Wake display / reset inactivity timer
@@ -105,15 +108,22 @@ export function useKioskManager({ settings }: KioskManagerProps) {
   }, [handleUserActivity]);
 
   // Slideshow advance timer
-  // Runs if multiple slides, or if screensaverMode === 'urls' and on screensaver
+  // Runs if settings.enableSlideshow is true, multiple slides, awake, and not in deep sleep
   useEffect(() => {
-    const isUrlsScreensaver = isScreensaverActive && settings.screensaverMode === "urls";
-    const canRunSlideshow = (totalSlides > 1 && !isSlideshowPaused && !isScreensaverActive) || (isUrlsScreensaver && totalSlides > 1);
+    const canRunSlideshow =
+      settings.enableSlideshow &&
+      totalSlides > 1 &&
+      !isSlideshowPaused &&
+      !isScreensaverActive &&
+      !isDeepSleepActive;
 
     if (!canRunSlideshow) {
       if (slideshowTimerRef.current) {
         clearInterval(slideshowTimerRef.current);
         slideshowTimerRef.current = null;
+      }
+      if (!settings.enableSlideshow && currentSlideIndex !== 0) {
+        setCurrentSlideIndex(0);
       }
       return;
     }
@@ -129,7 +139,15 @@ export function useKioskManager({ settings }: KioskManagerProps) {
         slideshowTimerRef.current = null;
       }
     };
-  }, [totalSlides, isSlideshowPaused, isScreensaverActive, settings.screensaverMode, settings.slideshowInterval]);
+  }, [
+    settings.enableSlideshow,
+    totalSlides,
+    isSlideshowPaused,
+    isScreensaverActive,
+    isDeepSleepActive,
+    settings.slideshowInterval,
+    currentSlideIndex,
+  ]);
 
   // Auto-refresh WebView timer
   useEffect(() => {

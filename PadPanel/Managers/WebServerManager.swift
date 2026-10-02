@@ -721,6 +721,10 @@ final class WebServerManager: ObservableObject {
             if let d = refInt as? Double { settings.autoRefreshInterval = d }
             else if let s = refInt as? String, let d = Double(s) { settings.autoRefreshInterval = d }
         }
+        if let es = dict["enableSlideshow"] {
+            if let b = es as? Bool { settings.enableSlideshow = b }
+            else if let s = es as? String { settings.enableSlideshow = (s == "true" || s == "1" || s == "on") }
+        }
         if let urls = dict["slideshowURLs"] as? [String] {
             settings.slideshowURLs = urls
         } else if let urlsString = dict["slideshowURLs"] as? String {
@@ -729,6 +733,13 @@ final class WebServerManager: ObservableObject {
         if let slideInt = dict["slideshowInterval"] {
             if let d = slideInt as? Double { settings.slideshowInterval = d }
             else if let s = slideInt as? String, let d = Double(s) { settings.slideshowInterval = d }
+        }
+        if let pfu = dict["photoFrameURL"] as? String {
+            settings.photoFrameURL = pfu
+        }
+        if let pfi = dict["photoFrameInterval"] {
+            if let d = pfi as? Double { settings.photoFrameInterval = d }
+            else if let s = pfi as? String, let d = Double(s) { settings.photoFrameInterval = d }
         }
         if let va = dict["enableVoiceActivation"] {
             if let b = va as? Bool { settings.enableVoiceActivation = b }
@@ -1271,6 +1282,30 @@ final class WebServerManager: ObservableObject {
                         <div class="card-section">
                             <div class="section-header">
                                 <div class="section-title">
+                                    <span class="material-symbols-outlined">auto_stories</span> Slideshow
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="checkbox-group">
+                                    <input type="checkbox" name="enableSlideshow" \(settings.enableSlideshow ? "checked" : "")>
+                                    <span>Enable Slideshow</span>
+                                </label>
+                                <div class="hint">When enabled, the main dashboard and any additional URLs will cycle during normal viewing based on the cycle interval.</div>
+                            </div>
+                            <div class="form-group" style="margin-top: 14px;">
+                                <label>Additional Slideshow URLs (one per line)</label>
+                                <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
+                                <div class="hint">Additional URLs cycled alongside the main dashboard.</div>
+                            </div>
+                            <div class="form-group">
+                                <label>Slideshow Cycle Interval (seconds)</label>
+                                <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
+                            </div>
+                        </div>
+
+                        <div class="card-section">
+                            <div class="section-header">
+                                <div class="section-title">
                                     <span class="material-symbols-outlined">lan</span> Remote Web UI
                                 </div>
                             </div>
@@ -1340,8 +1375,8 @@ final class WebServerManager: ObservableObject {
                                 <label>Screensaver Option</label>
                                 <select name="screensaverMode">
                                     <option value="clock" \(settings.screensaverMode == "clock" ? "selected" : "")>Clock & Sensors (Black screen with time & face/motion wake)</option>
+                                    <option value="photoFrame" \(settings.screensaverMode == "photoFrame" ? "selected" : "")>Photo Frame (Fetches image from URL every X seconds)</option>
                                     <option value="dimming" \(settings.screensaverMode == "dimming" ? "selected" : "")>Dimming Only (Dims screen, tap/sensor restores brightness)</option>
-                                    <option value="urls" \(settings.screensaverMode == "urls" ? "selected" : "")>URLs Slideshow (Smoothly cycles URLs during screensaver)</option>
                                     <option value="off" \(settings.screensaverMode == "off" ? "selected" : "")>Off (Disabled — no screensaver, no dimming)</option>
                                 </select>
                             </div>
@@ -1414,17 +1449,21 @@ final class WebServerManager: ObservableObject {
                         <div class="card-section">
                             <div class="section-header">
                                 <div class="section-title">
-                                    <span class="material-symbols-outlined">auto_stories</span> Slideshow
+                                    <span class="material-symbols-outlined">photo_library</span> Photo frame
                                 </div>
                             </div>
+                            <p class="hint" style="margin-bottom: 12px;">
+                                Active when Screensaver Option is set to "Photo Frame". Fetches an image from a single URL endpoint and refreshes it periodically. Tap to wake.
+                            </p>
                             <div class="form-group">
-                                <label>Slideshow URLs (one per line)</label>
-                                <textarea name="slideshowURLs" rows="4">\(urlsText)</textarea>
-                                <div class="hint">Secondary URLs cycled during slideshow screensaver mode.</div>
+                                <label>Photo Frame Image URL</label>
+                                <input type="text" name="photoFrameURL" class="code-input" value="\(settings.photoFrameURL)" placeholder="http://homeassistant.local:8123/api/camera_proxy/camera.front_door">
+                                <div class="hint">Single URL endpoint for an image (e.g. camera snapshot, rotating photo service, local image server).</div>
                             </div>
                             <div class="form-group">
-                                <label>Slideshow Cycle Interval (seconds)</label>
-                                <input type="number" name="slideshowInterval" value="\(Int(settings.slideshowInterval))" min="5" max="600">
+                                <label>Image Refresh Interval (seconds)</label>
+                                <input type="number" name="photoFrameInterval" value="\(Int(settings.photoFrameInterval))" min="5" max="3600">
+                                <div class="hint">How often to refetch and display the updated image from the URL endpoint.</div>
                             </div>
                         </div>
                     </div>
@@ -1700,7 +1739,7 @@ final class WebServerManager: ObservableObject {
                     
                     // Boolean checkboxes
                     const checkboxes = [
-                        'showDebugInfo', 'enableAutoRefresh', 'requireDeviceAuth', 'enableWebServer',
+                        'showDebugInfo', 'enableAutoRefresh', 'enableSlideshow', 'requireDeviceAuth', 'enableWebServer',
                         'enableHomeAssistant', 'useHTTPS', 'enableMQTT', 'mqttUseTLS', 'enableDeepSleep'
                     ];
                     checkboxes.forEach(name => {
